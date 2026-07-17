@@ -1,0 +1,37 @@
+# src_v5 image masking pipeline
+#
+# NOTE on environment: in the dev sandbox PyPI was unreachable but Hugging Face
+# and GitHub were. So the stack deliberately avoids packages that need a fresh
+# pip install of heavy native deps (paddleocr, insightface/onnxruntime,
+# tensorflow) and instead uses:
+#   - transformers (Grounding DINO + CLIP)  → weights from HF Hub
+#   - opencv-python (YuNet face + DBNet text via the bundled DNN backend)
+#     → tiny ONNX models from the OpenCV Zoo (see models/README or download below)
+#
+# Core (already present in the project .venv):
+torch>=2.4
+torchvision
+transformers>=5.0
+opencv-python>=4.10        # provides cv2.FaceDetectorYN + dnn_TextDetectionModel_DB
+Pillow
+numpy
+matplotlib                 # notebook visualisation only
+
+# Databricks text phase (ai_parse_document) — only needed when DO_TEXT=True:
+databricks-connect
+requests                   # Claude REST classifier for PII filtering
+
+# Performance tracking (native on Databricks; pipeline/tracking.py degrades to
+# dry-run if absent). eval/track_masking.py is the runnable workflow.
+mlflow                     # or mlflow-skinny for client-only logging
+
+# ── Model files (not pip-installable) ────────────────────────────────────────
+# Downloaded at build time into models/:
+#   face_detection_yunet_2023mar.onnx
+#     https://github.com/opencv/opencv_zoo/raw/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx
+#   (optional, local text fallback) text_detection_DB_*.onnx — Git-LFS in the
+#   OpenCV Zoo; fetch via git-lfs or the Databricks ai_parse_document path instead.
+#
+# HF weights auto-download on first run:
+#   IDEA-Research/grounding-dino-base   (logos)
+#   openai/clip-vit-base-patch32        (logo verification + Databricks allowlist)

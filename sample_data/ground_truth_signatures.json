@@ -1,0 +1,33 @@
+{
+  "signed_engagement_letter.png": [
+    {
+      "type": "signature",
+      "box": [
+        94.7,
+        759.4,
+        542.4,
+        817.6
+      ]
+    }
+  ],
+  "signed_audit_signoff.png": [
+    {
+      "type": "signature",
+      "box": [
+        110.7,
+        576.6,
+        365.9,
+        632.4
+      ]
+    },
+    {
+      "type": "signature",
+      "box": [
+        670.0,
+        589.3,
+        836.1,
+        637.7
+      ]
+    }
+  ]
+}

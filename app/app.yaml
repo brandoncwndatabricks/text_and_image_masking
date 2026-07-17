@@ -1,0 +1,8 @@
+command: ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
+env:
+  - name: VISION_ENDPOINT
+    value: "image-masking-vision"
+  - name: SQL_WAREHOUSE_ID
+    value: "a3ac37025ff93449"
+  - name: CLAUDE_ENDPOINT
+    value: "databricks-claude-sonnet-4"

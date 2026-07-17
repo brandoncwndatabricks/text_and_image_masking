@@ -1,0 +1,16 @@
+[project]
+name = "redaction-studio"
+version = "0.1.0"
+description = "Image Masking v5 redaction app (Databricks Apps)"
+requires-python = ">=3.11"
+# Light container — vision runs on a Model Serving endpoint, NOT here.
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "pydantic",
+    "pillow",
+    "numpy",
+    "pypdfium2",
+    "requests",
+    "databricks-sdk",
+]

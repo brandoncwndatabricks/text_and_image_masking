@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+*.egg-info
+.venv/
+.databricks/
+build/
+dist/
+.DS_Store
+
+# generated at run time
+outputs/
+test_set/outputs/

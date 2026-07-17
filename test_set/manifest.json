@@ -1,0 +1,320 @@
+[
+  {
+    "file": "face_01.jpg",
+    "category": "face",
+    "source": "real",
+    "license": "Unsplash License",
+    "url": "https://images.unsplash.com/photo-1521737604893-d14cc237f11d?w=800",
+    "size": [
+      800,
+      525
+    ]
+  },
+  {
+    "file": "face_02.jpg",
+    "category": "face",
+    "source": "real",
+    "license": "Unsplash License",
+    "url": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800",
+    "size": [
+      800,
+      1200
+    ]
+  },
+  {
+    "file": "face_03.jpg",
+    "category": "face",
+    "source": "real",
+    "license": "Unsplash License",
+    "url": "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=800",
+    "size": [
+      800,
+      1200
+    ]
+  },
+  {
+    "file": "face_04.jpg",
+    "category": "face",
+    "source": "real",
+    "license": "Unsplash License",
+    "url": "https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?w=800",
+    "size": [
+      800,
+      1200
+    ]
+  },
+  {
+    "file": "scene_01.jpg",
+    "category": "scene",
+    "source": "real",
+    "license": "Unsplash License",
+    "url": "https://images.unsplash.com/photo-1542744173-8e7e53415bb0?w=800",
+    "size": [
+      800,
+      533
+    ]
+  },
+  {
+    "file": "scene_02.jpg",
+    "category": "scene",
+    "source": "real",
+    "license": "Unsplash License",
+    "url": "https://images.unsplash.com/photo-1600880292203-757bb62b4baf?w=800",
+    "size": [
+      800,
+      533
+    ]
+  },
+  {
+    "file": "scene_03.jpg",
+    "category": "scene",
+    "source": "real",
+    "license": "Unsplash License",
+    "url": "https://images.unsplash.com/photo-1556761175-5973dc0f32e7?w=800",
+    "size": [
+      800,
+      450
+    ]
+  },
+  {
+    "file": "scene_04.jpg",
+    "category": "scene",
+    "source": "real",
+    "license": "Unsplash License",
+    "url": "https://images.unsplash.com/photo-1551836022-d5d88e9218df?w=800",
+    "size": [
+      800,
+      533
+    ]
+  },
+  {
+    "file": "scene_05.jpg",
+    "category": "scene",
+    "source": "real",
+    "license": "Unsplash License",
+    "url": "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=800",
+    "size": [
+      800,
+      533
+    ]
+  },
+  {
+    "file": "scene_06.jpg",
+    "category": "scene",
+    "source": "real",
+    "license": "Unsplash License",
+    "url": "https://images.unsplash.com/photo-1497366216548-37526070297c?w=800",
+    "size": [
+      800,
+      534
+    ]
+  },
+  {
+    "file": "scene_07.jpg",
+    "category": "scene",
+    "source": "real",
+    "license": "Unsplash License",
+    "url": "https://images.unsplash.com/photo-1497366811353-6870744d04b2?w=800",
+    "size": [
+      800,
+      534
+    ]
+  },
+  {
+    "file": "neg_01.jpg",
+    "category": "neg",
+    "source": "real",
+    "license": "Unsplash License (via Lorem Picsum)",
+    "url": "https://picsum.photos/seed/ledger11/800/600",
+    "size": [
+      800,
+      600
+    ]
+  },
+  {
+    "file": "neg_02.jpg",
+    "category": "neg",
+    "source": "real",
+    "license": "Unsplash License (via Lorem Picsum)",
+    "url": "https://picsum.photos/seed/harbor27/800/600",
+    "size": [
+      800,
+      600
+    ]
+  },
+  {
+    "file": "neg_03.jpg",
+    "category": "neg",
+    "source": "real",
+    "license": "Unsplash License (via Lorem Picsum)",
+    "url": "https://picsum.photos/seed/forest33/800/600",
+    "size": [
+      800,
+      600
+    ]
+  },
+  {
+    "file": "neg_04.jpg",
+    "category": "neg",
+    "source": "real",
+    "license": "Unsplash License (via Lorem Picsum)",
+    "url": "https://picsum.photos/seed/skyline48/800/600",
+    "size": [
+      800,
+      600
+    ]
+  },
+  {
+    "file": "neg_05.jpg",
+    "category": "neg",
+    "source": "real",
+    "license": "Unsplash License (via Lorem Picsum)",
+    "url": "https://picsum.photos/seed/desk52/800/600",
+    "size": [
+      800,
+      600
+    ]
+  },
+  {
+    "file": "neg_06.jpg",
+    "category": "neg",
+    "source": "real",
+    "license": "Unsplash License (via Lorem Picsum)",
+    "url": "https://picsum.photos/seed/coast64/800/600",
+    "size": [
+      800,
+      600
+    ]
+  },
+  {
+    "file": "neg_07.jpg",
+    "category": "neg",
+    "source": "real",
+    "license": "Unsplash License (via Lorem Picsum)",
+    "url": "https://picsum.photos/seed/market77/800/600",
+    "size": [
+      800,
+      600
+    ]
+  },
+  {
+    "file": "business_card_1.png",
+    "category": "gen",
+    "source": "synthetic",
+    "license": "generated locally (fabricated PII) \u2014 freely shareable",
+    "size": [
+      1050,
+      600
+    ]
+  },
+  {
+    "file": "business_card_2.png",
+    "category": "gen",
+    "source": "synthetic",
+    "license": "generated locally (fabricated PII) \u2014 freely shareable",
+    "size": [
+      1050,
+      600
+    ]
+  },
+  {
+    "file": "business_card_3.png",
+    "category": "gen",
+    "source": "synthetic",
+    "license": "generated locally (fabricated PII) \u2014 freely shareable",
+    "size": [
+      1050,
+      600
+    ]
+  },
+  {
+    "file": "invoice_1.png",
+    "category": "gen",
+    "source": "synthetic",
+    "license": "generated locally (fabricated PII) \u2014 freely shareable",
+    "size": [
+      1000,
+      1300
+    ]
+  },
+  {
+    "file": "invoice_2.png",
+    "category": "gen",
+    "source": "synthetic",
+    "license": "generated locally (fabricated PII) \u2014 freely shareable",
+    "size": [
+      1000,
+      1300
+    ]
+  },
+  {
+    "file": "financial_statement_1.png",
+    "category": "gen",
+    "source": "synthetic",
+    "license": "generated locally (fabricated PII) \u2014 freely shareable",
+    "size": [
+      1000,
+      1300
+    ]
+  },
+  {
+    "file": "w9_form_1.png",
+    "category": "gen",
+    "source": "synthetic",
+    "license": "generated locally (fabricated PII) \u2014 freely shareable",
+    "size": [
+      1000,
+      1280
+    ]
+  },
+  {
+    "file": "form_1099_1.png",
+    "category": "gen",
+    "source": "synthetic",
+    "license": "generated locally (fabricated PII) \u2014 freely shareable",
+    "size": [
+      1000,
+      1280
+    ]
+  },
+  {
+    "file": "engagement_letter_1.png",
+    "category": "gen",
+    "source": "synthetic",
+    "license": "generated locally (fabricated PII) \u2014 freely shareable",
+    "size": [
+      1275,
+      1650
+    ]
+  },
+  {
+    "file": "audit_memo_1.png",
+    "category": "gen",
+    "source": "synthetic",
+    "license": "generated locally (fabricated PII) \u2014 freely shareable",
+    "size": [
+      1275,
+      1650
+    ]
+  },
+  {
+    "file": "bank_statement_1.png",
+    "category": "gen",
+    "source": "synthetic",
+    "license": "generated locally (fabricated PII) \u2014 freely shareable",
+    "size": [
+      1000,
+      1300
+    ]
+  },
+  {
+    "file": "nda_page_1.png",
+    "category": "gen",
+    "source": "synthetic",
+    "license": "generated locally (fabricated PII) \u2014 freely shareable",
+    "size": [
+      1275,
+      1650
+    ]
+  }
+]

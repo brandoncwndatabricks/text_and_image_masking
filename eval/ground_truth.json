@@ -1,0 +1,170 @@
+{
+  "audi_image.jpg": [
+    {
+      "type": "logo",
+      "box": [
+        679.5,
+        685.1,
+        808.6,
+        745.4
+      ],
+      "label": "logo",
+      "score": 0.521,
+      "mask": true
+    },
+    {
+      "type": "logo",
+      "box": [
+        167.1,
+        68.1,
+        827.5,
+        244.6
+      ],
+      "label": "brand logo company emblem",
+      "score": 0.312,
+      "mask": true
+    }
+  ],
+  "consulting-slides-2.jpg": [
+    {
+      "type": "face",
+      "box": [
+        842.9,
+        313.3,
+        870.6,
+        351.4
+      ],
+      "label": "face",
+      "score": 0.904,
+      "mask": true
+    },
+    {
+      "type": "face",
+      "box": [
+        907.3,
+        316.8,
+        932.9,
+        357.0
+      ],
+      "label": "face",
+      "score": 0.835,
+      "mask": true
+    }
+  ],
+  "logo1.jpg": [
+    {
+      "type": "logo",
+      "box": [
+        580.3,
+        693.1,
+        724.6,
+        835.3
+      ],
+      "label": "logo",
+      "score": 0.474,
+      "mask": true
+    },
+    {
+      "type": "logo",
+      "box": [
+        171.1,
+        394.8,
+        317.3,
+        521.7
+      ],
+      "label": "logo",
+      "score": 0.325,
+      "mask": true
+    },
+    {
+      "type": "logo",
+      "box": [
+        590.3,
+        376.8,
+        970.6,
+        513.1
+      ],
+      "label": "logo company emblem",
+      "score": 0.314,
+      "mask": true
+    },
+    {
+      "type": "logo",
+      "box": [
+        196.2,
+        874.2,
+        319.4,
+        996.5
+      ],
+      "label": "logo",
+      "score": 0.254,
+      "mask": true
+    }
+  ],
+  "logo2.jpeg": [
+    {
+      "type": "logo",
+      "box": [
+        212.6,
+        84.2,
+        242.5,
+        97.4
+      ],
+      "label": "logo brand logo company emblem",
+      "score": 0.332,
+      "mask": true
+    }
+  ],
+  "db-slides-1.jpg": [
+    {
+      "type": "logo",
+      "box": [
+        38.2,
+        237.4,
+        601.4,
+        369.7
+      ],
+      "label": "brand logo company emblem",
+      "score": 0.335,
+      "mask": true
+    }
+  ],
+  "db-success-stories-2.jpg": [
+    {
+      "type": "logo",
+      "box": [
+        1340.1,
+        13.1,
+        1510.8,
+        50.1
+      ],
+      "label": "brand logo company emblem",
+      "score": 0.355,
+      "mask": true
+    },
+    {
+      "type": "logo",
+      "box": [
+        981.4,
+        395.1,
+        1453.3,
+        469.3
+      ],
+      "label": "brand logo company emblem",
+      "score": 0.33,
+      "mask": true
+    },
+    {
+      "type": "logo",
+      "box": [
+        53.2,
+        89.6,
+        409.3,
+        149.6
+      ],
+      "label": "brand logo company emblem",
+      "score": 0.295,
+      "mask": true
+    }
+  ]
+}
