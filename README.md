@@ -15,11 +15,12 @@ team slide, and names / emails / account numbers in the body.
 Each image is run through the pipeline and produces a redacted copy. Below,
 **before** is the original and **after** is what the pipeline emits.
 
-**Advisory report — company logo + embedded headshot.** The "Meridian" logo is
-blacked out and the executive's face is Gaussian-blurred; the body text is left
-for the text phase.
+**All three phases at once — advisory report.** The "Meridian" logo is blacked
+out (logo phase), the executive headshot is Gaussian-blurred (face phase), and
+the direct phone line, personal-assistant email, and the CEO name/email caption
+are masked (text/PII phase) — while the title and body narrative are preserved.
 
-![Advisory report before/after](docs/img/doc_report_with_photo_before_after.jpg)
+![Three-phase report before/after](docs/img/three_phase_report_before_after.jpg)
 
 **Team slide — 4 faces blurred.** Every headshot is detected and blurred while
 the layout, names, and roles are preserved.
@@ -163,7 +164,12 @@ offline. The notebook has equivalent cells (`evaluate_and_log` / `sweep_and_log`
 
 - **Text phase requires Databricks** — `ai_parse_document` is a platform function;
   the logo + face phases are fully local. Run with `do_text=True` for full coverage
-  (wordmark logos and PII depend on it).
+  (wordmark logos and PII depend on it). Validated live on a Databricks serverless
+  session with `databricks-claude-sonnet-4` as the PII classifier.
+- **PII classifier selectivity varies doc-to-doc** — in `text_mode="pii_only"`
+  the Claude classifier is a judgment call, so exactly which lines it masks (names,
+  fees, addresses) is not perfectly consistent across documents. Use
+  `text_mode="all_text"` when you need to guarantee every text element is masked.
 - **`ground_truth.json` is auto-proposed** — correct it before trusting eval
   numbers (scores against an uncorrected scaffold are meaningless by construction).
 - **Thresholds** (`logo_box_threshold`, `databricks_min_sim`, face score) are
