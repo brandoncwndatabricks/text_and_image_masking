@@ -1,0 +1,12 @@
+# Databricks Apps installs the app's Python deps from THIS file (pyproject.toml
+# is not used for dependency install by Apps). Keep in sync with pyproject.toml.
+# pypdfium2 is required to rasterize PDF uploads (page 1) for the vision phase —
+# without it, any PDF/"doc" upload fails with "No module named 'pypdfium2'".
+fastapi
+uvicorn[standard]
+pydantic
+pillow
+numpy
+pypdfium2
+requests
+databricks-sdk

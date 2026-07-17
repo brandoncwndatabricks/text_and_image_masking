@@ -66,3 +66,43 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
 .chip{font-size:12px;border:1.5px solid #ccc;border-radius:20px;padding:4px 11px;background:#fff;color:var(--ink)}
 .chip.kept{opacity:.6;font-style:italic}
 @media(max-width:880px){.compare{grid-template-columns:1fr}}
+.live-badge{font-size:12px;background:#1db95422;color:#0b8c3c;border:1px solid #1db95455;padding:3px 10px;border-radius:20px}
+.tbright{display:flex;align-items:center;gap:10px}
+.mstat{display:flex;align-items:center;gap:6px;font-size:12px;color:#cdd7e5}
+.mstat .mdot{width:9px;height:9px;border-radius:50%;background:#8a98a8;flex:0 0 auto}
+.mstat.ok .mdot{background:#1db954}
+.mstat.warn .mdot{background:#ffb020;animation:pulse2 1s ease-in-out infinite}
+.mstat.err .mdot{background:#ff4d4f}
+@keyframes pulse2{0%,100%{opacity:1}50%{opacity:.25}}
+.hint{margin-top:10px;font-size:12px;color:var(--muted);background:#f1f5fa;border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.spinner.sm{width:20px;height:20px;border-width:3px;margin:0}
+/* stages strip */
+.stages{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
+.stg{flex:1 1 0;min-width:104px;display:flex;flex-direction:column;align-items:center;gap:6px;
+  padding:10px 6px;border:1px solid var(--line);border-radius:10px;background:#fff;text-align:center}
+.stg-ic{position:relative;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  background:#eef1f5;color:#9aa6b2;transition:.2s}
+.stg-ic svg{width:20px;height:20px}
+.stg-mark{position:absolute;right:-2px;bottom:-2px;width:13px;height:13px;border-radius:50%;display:none}
+.stg-lb{font-size:11px;line-height:1.25;color:var(--muted);font-weight:600}
+.stg.active .stg-ic{background:var(--red);color:#fff;animation:pulse 1.1s ease-in-out infinite}
+.stg.active .stg-lb{color:var(--ink)}
+.stg.done .stg-ic{background:#1db954;color:#fff}
+.stg.done .stg-mark{display:block;background:#1db954;border:2px solid #fff}
+.stg.skip{opacity:.4}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 3px #ff3c2022}50%{box-shadow:0 0 0 7px #ff3c2000}}
+/* live work area */
+.work{display:grid;grid-template-columns:1fr 300px;gap:18px;align-items:start}
+.work .compare{margin:0}
+.ph{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:180px;
+  color:var(--muted);font-size:13px;background:#f6f8fb}
+.ph small{font-size:11px;color:#9aa6b2}
+.info{display:flex;flex-direction:column;gap:12px;position:sticky;top:0}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.card h4{margin:0 0 8px;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.parse{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
+.parse li{font-size:12px;color:var(--ink);background:#f6f8fb;border-radius:6px;padding:5px 8px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.parse li.pii{background:#fff5d6;border:1px solid #ffe08a;font-weight:600}
+.card small{color:#9aa6b2;font-size:11px}
+@media(max-width:980px){.work{grid-template-columns:1fr}.info{position:static}}

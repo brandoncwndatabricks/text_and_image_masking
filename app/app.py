@@ -20,8 +20,7 @@ import os
 import sys
 
 from fastapi import FastAPI
-from fastapi.responses import FileResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from PIL import Image
 from pydantic import BaseModel
 
@@ -30,10 +29,9 @@ from pydantic import BaseModel
 _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _HERE)
 sys.path.insert(0, os.path.dirname(_HERE))
-from pipeline.boxes import Detection, merge_sources            # noqa: E402
-from pipeline.masking import apply_masks                       # noqa: E402
-from pipeline.overlay import render_overlay                    # noqa: E402
+from pipeline.boxes import Detection                           # noqa: E402
 from pipeline import text_pii                                  # noqa: E402 (regex/prompt/flag_signatures — pure)
+from _stream import run_stages, sse, aggregate                 # noqa: E402 (shared staged orchestration)
 
 VISION_ENDPOINT = os.environ.get("VISION_ENDPOINT", "image-masking-vision")
 SQL_WAREHOUSE_ID = os.environ.get("SQL_WAREHOUSE_ID", "")
@@ -124,8 +122,9 @@ def text_detect(img: Image.Image):
     return dets
 
 
-def claude_pii_indices(text_dets):
-    texts = "\n".join(f'{i}: {d.meta.get("content", d.label)}' for i, d in enumerate(text_dets))
+def claude_pii_indices(contents):
+    """Ask Claude which of the parsed text strings are PII → set of 0-based indices."""
+    texts = "\n".join(f"{i}: {c}" for i, c in enumerate(contents))
     prompt = (f"{text_pii.SENSITIVE_TEXT_PROMPT}\n\nText items to review:\n{texts}\n\n"
               "Return a JSON array of index numbers (0-based) for items that should be masked.\n"
               "Return ONLY the JSON array. Example: [0, 2, 5]")
@@ -142,56 +141,102 @@ def claude_pii_indices(text_dets):
         return None  # fall back to regex-only
 
 
-@app.post("/api/mask")
-def mask(req: MaskRequest):
-    import time
-    t0 = time.time()
+def _events(req: MaskRequest):
+    """Build the staged event generator for one request (load + run_stages).
+
+    Detection backends are injected: vision → GPU Model Serving, text →
+    ai_parse_document (SQL), PII → Claude. Load errors surface as an SSE event.
+    """
     try:
         img = load_image(req.image, req.filename)
-    except Exception as e:
-        return JSONResponse({"error": f"could not read input: {e}"}, status_code=400)
-    opt = req.options
-    dets = []
-    if opt.logos or opt.faces:
-        dets += vision_detect(img, opt)
-    want_text, want_sig = opt.text, opt.signatures
-    if want_text or want_sig:
-        tds = text_detect(img)
-        text_pii.flag_signatures(tds, img_h=img.size[1])
-        # regex always; Claude refines
-        claude_idx = claude_pii_indices([d for d in tds if d.source == "text"]) if want_text else None
-        text_only = [d for d in tds if d.source == "text"]
-        for i, d in enumerate(text_only):
-            content = d.meta.get("content", d.label)
-            d.mask = bool(want_text and (text_pii.regex_is_sensitive(content)
-                                         or (claude_idx is not None and i in claude_idx)))
-        dets += tds
-    # respect toggles
-    keep = set()
-    if opt.logos: keep.add("logo")
-    if opt.faces: keep.add("face")
-    if want_text: keep.add("text")
-    if want_sig: keep.add("signature")
-    dets = [d for d in merge_sources(dets) if d.source in keep and d.mask]
-    styles = {"face": opt.face_style, "logo": opt.other_style,
-              "text": opt.other_style, "signature": opt.other_style}
+    except Exception as e:                                  # noqa: BLE001
+        def fail():
+            yield {"event": "error", "msg": f"could not read input: {e}"}
+        return fail()
+    opt = req.options.model_dump()
+    opt["_filename"] = req.filename
+    return run_stages(
+        img, opt,
+        vision_fn=lambda im, _o: vision_detect(im, req.options) if (req.options.logos or req.options.faces) else [],
+        text_fn=lambda im: text_detect(im),
+        pii_fn=claude_pii_indices,
+    )
 
-    def url(im):
-        b = io.BytesIO(); im.convert("RGB").save(b, "PNG")
-        return "data:image/png;base64," + base64.b64encode(b.getvalue()).decode()
-    return {"original": url(img), "masked": url(apply_masks(img, dets, style_overrides=styles)),
-            "overlay": url(render_overlay(img, dets)),
-            "detections": [{"source": d.source, "label": d.label, "score": round(float(d.score), 3),
-                            "box": [round(float(v), 1) for v in d.box], "mask": bool(d.mask)} for d in dets],
-            "timing_s": round(time.time() - t0, 2), "mock": False}
+
+# ── GPU vision endpoint warm-state ────────────────────────────────────────────
+# A scale-to-zero GPU endpoint reports READY even with 0 replicas; the only proof
+# it's actually warm is a request that a replica answered. So we track warmth by
+# firing a tiny inference and recording when it returns. The UI polls /api/status
+# and gates Redact on "warm" so a request never fires into a ~150s cold start
+# (which would blow the Apps ~120s ingress timeout).
+import threading                                          # noqa: E402
+import time as _time                                      # noqa: E402
+
+_WARM = {"state": "cold", "ts": 0.0, "msg": ""}           # cold|warming|warm|error
+_WARM_LOCK = threading.Lock()
+_WARM_TTL = 15 * 60   # a warm replica may scale back to zero after idle → re-warm
+
+
+def _do_warm():
+    try:
+        vision_detect(Image.new("RGB", (8, 8), "white"), MaskOptions())
+        _WARM.update(state="warm", ts=_time.time(), msg="")
+    except Exception as e:                                 # noqa: BLE001
+        _WARM.update(state="error", msg=str(e))
+
+
+def _trigger_warm():
+    with _WARM_LOCK:
+        if _WARM["state"] in ("cold", "error"):
+            _WARM.update(state="warming", msg="")
+            threading.Thread(target=_do_warm, daemon=True).start()
+
+
+@app.post("/api/warm")
+def warm():
+    _trigger_warm()
+    return {"state": _WARM["state"]}
+
+
+@app.get("/api/status")
+def status():
+    # a warm replica can scale back to zero after idle → expire so the UI re-warms
+    if _WARM["state"] == "warm" and _time.time() - _WARM["ts"] > _WARM_TTL:
+        _WARM.update(state="cold")
+    return {"state": _WARM["state"], "endpoint": VISION_ENDPOINT, "msg": _WARM.get("msg", "")}
+
+
+@app.post("/api/mask/stream")
+def mask_stream(req: MaskRequest):
+    """Server-Sent Events: render → parse → text PII → vision → boxes → masked → done."""
+    def gen():
+        try:
+            for e in _events(req):
+                yield sse(e)
+        except Exception as e:                             # noqa: BLE001
+            yield sse({"event": "error", "msg": str(e)})
+    return StreamingResponse(gen(), media_type="text/event-stream",
+                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
+@app.post("/api/mask")
+def mask(req: MaskRequest):
+    """Legacy single-shot reply (drains the same staged pipeline)."""
+    out = aggregate(_events(req))
+    if out.get("error"):
+        return JSONResponse({"error": out["error"]}, status_code=400)
+    return out
 
 
 # ── serve the SPA ─────────────────────────────────────────────────────────────
 WEB = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web")
+_NOCACHE = {"Cache-Control": "no-cache, must-revalidate"}  # always revalidate so a
+# redeploy is picked up immediately (index.html must never be served stale, else
+# the ?v= asset busting never reaches the browser).
 if os.path.isdir(WEB):
     @app.get("/{full_path:path}")
     def spa(full_path: str):
         target = os.path.join(WEB, full_path)
         if full_path and os.path.isfile(target):
-            return FileResponse(target)
-        return FileResponse(os.path.join(WEB, "index.html"))
+            return FileResponse(target, headers=_NOCACHE)
+        return FileResponse(os.path.join(WEB, "index.html"), headers=_NOCACHE)

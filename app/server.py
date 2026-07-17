@@ -31,91 +31,55 @@ import base64
 import io
 import json
 import os
-import random
 import sys
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from PIL import Image, ImageDraw, ImageFilter
+from PIL import Image
 
-# Make the v5 `pipeline` package importable (src_v5/ is this file's grandparent),
-# so REAL mode can `from pipeline.run import MaskingPipeline`.
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Make `pipeline` (grandparent src_v5/) and `_stream` (sibling) importable, then
+# pull in the SHARED staged orchestration so this dev server and the deployed
+# FastAPI app run the exact same pipeline order / PII logic / masking.
+_HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.dirname(_HERE))   # src_v5 → pipeline
+sys.path.insert(0, _HERE)                     # app    → _stream
+from _stream import STAGES, run_stages, sse, aggregate, to_data_url  # noqa: E402
+from pipeline.boxes import Detection                                  # noqa: E402
 
-WEB = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web")
+WEB = os.path.join(_HERE, "web")
 PORT = int(os.environ.get("PORT", "8000"))
 
-SRC_COLOR = {"logo": (255, 60, 60), "face": (0, 200, 255),
-             "text": (255, 210, 0), "signature": (200, 80, 255)}
-KEPT_COLOR = (60, 220, 60)
 
-
-# ── Mock detection ──────────────────────────────────────────────────────────
-def mock_detections(w, h, opt):
-    """Produce plausible, deterministic-ish boxes per enabled category.
-    Stands in for the real pipeline so the UI can be exercised."""
-    rnd = random.Random(w * 7919 + h)  # stable per image size
-    dets = []
+# ── Mock detectors (Detection objects → feed the real shared orchestrator) ────
+# Plausible, deterministic boxes so the staged UX is fully exercisable with no
+# GPU / Databricks. Includes a KEPT logo + a non-PII text line to show that
+# masking is *selective*, not mask-everything.
+def mock_vision(img, opt):
+    w, h = img.size; out = []
     if opt.get("logos"):
-        dets.append({"source": "logo", "label": "brand logo", "score": 0.74,
-                     "box": [int(w * 0.06), int(h * 0.05), int(w * 0.30), int(h * 0.13)],
-                     "mask": True})
+        out.append(Detection(box=[w*.06, h*.05, w*.30, h*.13], source="logo", label="brand logo", score=0.74))
         if opt.get("keep_databricks"):
-            dets.append({"source": "logo", "label": "databricks(kept)", "score": 0.91,
-                         "box": [int(w * 0.70), int(h * 0.88), int(w * 0.94), int(h * 0.96)],
-                         "mask": False})
+            out.append(Detection(box=[w*.70, h*.88, w*.94, h*.96], source="logo",
+                                 label="databricks (kept)", score=0.91, mask=False))
     if opt.get("faces"):
-        cx = w * 0.5
-        dets.append({"source": "face", "label": "face", "score": 0.88,
-                     "box": [int(cx - w * 0.07), int(h * 0.30), int(cx + w * 0.07), int(h * 0.46)],
-                     "mask": True})
-    if opt.get("text"):
-        for i in range(3):
-            y = h * (0.20 + i * 0.10)
-            dets.append({"source": "text", "label": "PII text", "score": 0.99,
-                         "box": [int(w * 0.10), int(y), int(w * (0.45 + rnd.random() * 0.25)), int(y + h * 0.045)],
-                         "mask": True})
-    if opt.get("signatures"):
-        dets.append({"source": "signature", "label": "signature", "score": 0.80,
-                     "box": [int(w * 0.10), int(h * 0.82), int(w * 0.42), int(h * 0.88)],
-                     "mask": True})
-    return dets
-
-
-def apply_masks(img, dets, opt):
-    out = img.convert("RGB").copy()
-    draw = ImageDraw.Draw(out)
-    for d in dets:
-        if not d["mask"]:
-            continue
-        x1, y1, x2, y2 = [int(v) for v in d["box"]]
-        style = opt.get("face_style", "blur") if d["source"] == "face" else opt.get("other_style", "black")
-        if style == "blur" and x2 > x1 and y2 > y1:
-            region = out.crop((x1, y1, x2, y2)).filter(ImageFilter.GaussianBlur(max(8, (x2 - x1) // 4)))
-            out.paste(region, (x1, y1))
-        else:
-            draw.rectangle([x1, y1, x2, y2], fill="black")
+        cx = w * .5
+        out.append(Detection(box=[cx-w*.07, h*.30, cx+w*.07, h*.46], source="face", label="face", score=0.88))
     return out
 
 
-def render_overlay(img, dets):
-    base = img.convert("RGBA")
-    ov = Image.new("RGBA", base.size, (0, 0, 0, 0))
-    d = ImageDraw.Draw(ov)
-    for det in dets:
-        c = KEPT_COLOR if not det["mask"] else SRC_COLOR.get(det["source"], (255, 255, 255))
-        x1, y1, x2, y2 = [int(v) for v in det["box"]]
-        d.rectangle([x1, y1, x2, y2], fill=c + (45,), outline=c + (255,), width=3)
-        tag = ("KEPT " if not det["mask"] else "") + f'{det["source"]}:{det["label"][:16]} {det["score"]:.2f}'
-        d.rectangle([x1, max(0, y1 - 18), x1 + 8 * len(tag), y1], fill=c + (230,))
-        d.text((x1 + 3, max(0, y1 - 17)), tag, fill=(0, 0, 0, 255))
-    return Image.alpha_composite(base, ov).convert("RGB")
+def mock_text(img):
+    w, h = img.size; out = []
+    lines = ["John Smith — 123 Main St", "Acct #4471-9982", "DOB 04/12/1981", "Value to Databricks"]
+    for i, txt in enumerate(lines):
+        y = h * (0.20 + i * 0.10)
+        out.append(Detection(box=[w*.10, y, w*.46, y + h*.045], source="text", label=txt[:40],
+                             score=0.99, meta={"content": txt, "elem_type": "text"}))
+    return out
 
 
-def to_data_url(img):
-    buf = io.BytesIO()
-    img.convert("RGB").save(buf, "PNG")
-    return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
+def mock_pii(contents):
+    # everything that isn't the generic "Value to Databricks" line is PII
+    return set(i for i, c in enumerate(contents) if "Databricks" not in c)
 
 
 # Formats ai_parse_document accepts: PDF, JPG/JPEG, PNG, TIFF/TIF, DOC/DOCX, PPT/PPTX
@@ -263,14 +227,45 @@ def process(payload):
                 "overlay": to_data_url(overlay), "detections": dets,
                 "timing_s": round(time.time() - t0, 2), "mock": False}
 
-    # mock path (default): illustrative placeholder boxes
-    dets = mock_detections(img.width, img.height, opt)
-    masked = apply_masks(img, dets, opt)
-    overlay = render_overlay(img, dets)
-    time.sleep(0.6)  # simulate latency so the progress UI is visible
-    return {"original": to_data_url(img), "masked": to_data_url(masked),
-            "overlay": to_data_url(overlay), "detections": dets,
-            "timing_s": round(time.time() - t0, 2), "mock": True}
+    # mock path (default): same shared orchestrator, mock detectors
+    r = aggregate(run_stages(img, {**opt, "_filename": payload.get("filename", "")},
+                             vision_fn=mock_vision, text_fn=mock_text, pii_fn=mock_pii))
+    r["mock"] = True
+    return r
+
+
+# ── Streaming (SSE) — the staged UX ───────────────────────────────────────────
+def _replay_stages(result):
+    """REAL mode computes everything up front; reveal it through the same staged
+    events so the panel still animates (boxes/masked appear at the end)."""
+    yield {"event": "stages", "stages": STAGES}
+    yield {"event": "render", "original": result["original"]}
+    for sid in ("crack", "text_id", "img_detect"):
+        yield {"event": "stage", "id": sid, "status": "done"}
+    yield {"event": "overlay", "overlay": result["overlay"], "detections": result["detections"]}
+    yield {"event": "stage", "id": "boxes", "status": "done"}
+    yield {"event": "masked", "masked": result["masked"]}
+    for sid in ("text_mask", "img_mask", "final"):
+        yield {"event": "stage", "id": sid, "status": "done"}
+    dets = result["detections"]
+    yield {"event": "done", "timing_s": result["timing_s"], "detections": dets,
+           "counts": {"masked": sum(d["mask"] for d in dets),
+                      "kept": sum(not d["mask"] for d in dets)}}
+
+
+def stream_events(payload):
+    """Generator of staged events. Mock = live stages; REAL = compute then replay."""
+    yield {"event": "meta", "mock": not REAL}
+    try:
+        img = load_input_image(payload)
+    except Exception as e:  # noqa: BLE001
+        yield {"event": "error", "msg": str(e)}; return
+    opt = {**payload.get("options", {}), "_filename": payload.get("filename", "")}
+    if REAL:
+        yield from _replay_stages(process(payload))
+    else:
+        yield from run_stages(img, opt, vision_fn=mock_vision, text_fn=mock_text,
+                              pii_fn=mock_pii, step_delay=0.45)
 
 
 # ── HTTP server (static + /api) ───────────────────────────────────────────────
@@ -282,19 +277,47 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _read_payload(self):
+        n = int(self.headers.get("Content-Length", 0))
+        return json.loads(self.rfile.read(n) or b"{}")
+
     def do_POST(self):
-        if self.path.rstrip("/") != "/api/mask":
+        path = self.path.rstrip("/")
+        if path == "/api/warm":
+            return self._send(200, b'{"state":"warm"}')   # mock: no real endpoint
+        if path == "/api/mask/stream":
+            return self._stream()
+        if path != "/api/mask":
             return self._send(404, b'{"error":"not found"}')
         try:
-            n = int(self.headers.get("Content-Length", 0))
-            payload = json.loads(self.rfile.read(n) or b"{}")
-            result = process(payload)
-            self._send(200, json.dumps(result).encode())
+            self._send(200, json.dumps(process(self._read_payload())).encode())
         except Exception as e:
             self._send(500, json.dumps({"error": f"{type(e).__name__}: {e}"}).encode())
 
+    def _stream(self):
+        """Server-Sent Events: write one frame per staged event, flushing each."""
+        try:
+            payload = self._read_payload()
+        except Exception as e:
+            return self._send(400, json.dumps({"error": str(e)}).encode())
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream")
+        self.send_header("Cache-Control", "no-cache")
+        self.send_header("Connection", "close")
+        self.end_headers()
+        try:
+            for e in stream_events(payload):
+                self.wfile.write(sse(e).encode()); self.wfile.flush()
+        except Exception as e:  # noqa: BLE001
+            try:
+                self.wfile.write(sse({"event": "error", "msg": str(e)}).encode()); self.wfile.flush()
+            except Exception:
+                pass
+
     def do_GET(self):
         path = self.path.split("?", 1)[0]
+        if path == "/api/status":
+            return self._send(200, b'{"state":"warm","endpoint":"mock"}')
         rel = "index.html" if path in ("/", "") else path.lstrip("/")
         fp = os.path.normpath(os.path.join(WEB, rel))
         if not fp.startswith(WEB) or not os.path.isfile(fp):
