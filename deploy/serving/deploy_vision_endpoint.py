@@ -23,7 +23,7 @@ import sys; sys.path.insert(0, SRC_V5)
 # ── config (edit to your workspace) ──────────────────────────────────────────
 CATALOG = os.environ.get("UC_CATALOG", "main")
 SCHEMA = os.environ.get("UC_SCHEMA", "image_masking")
-MODEL_NAME = f"{CATALOG}.{SCHEMA}.vision_redactor"
+MODEL_NAME = os.environ.get("MODEL_NAME_OVERRIDE", f"{CATALOG}.{SCHEMA}.vision_redactor")
 ENDPOINT = os.environ.get("ENDPOINT_NAME", "image-masking-vision")
 WORKLOAD_TYPE = os.environ.get("WORKLOAD_TYPE", "GPU_SMALL")  # T4-class; scale-to-zero
 
