@@ -37,7 +37,7 @@ from pipeline.tracking import evaluate_and_log, sweep_and_log     # noqa: E402
 
 CLAUDE_ENDPOINT = (
     "https://e2-demo-field-eng.cloud.databricks.com"
-    "/serving-endpoints/databricks-claude-sonnet-4/invocations"
+    "/serving-endpoints/databricks-claude-sonnet-5/invocations"
 )
 EXTS = ("*.jpg", "*.jpeg", "*.png", "*.bmp", "*.tiff", "*.webp")
 

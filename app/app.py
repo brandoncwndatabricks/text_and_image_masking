@@ -54,7 +54,7 @@ def cfg(name, default=""):
 
 VISION_ENDPOINT = cfg("VISION_ENDPOINT", "image-masking-vision")
 SQL_WAREHOUSE_ID = cfg("SQL_WAREHOUSE_ID", "")
-CLAUDE_ENDPOINT = cfg("CLAUDE_ENDPOINT", "databricks-claude-sonnet-4")
+CLAUDE_ENDPOINT = cfg("CLAUDE_ENDPOINT", "databricks-claude-sonnet-5")
 TEXT_MODE = cfg("TEXT_MODE", "pii_only")
 AI_PARSE_MAX_DIM = 1800   # cap image sent to ai_parse (SQL literal size); boxes scaled back
 

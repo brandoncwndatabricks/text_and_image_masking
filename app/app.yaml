@@ -8,7 +8,7 @@ env:
   - name: SQL_WAREHOUSE_ID
     value: "75fd8278393d07eb"
   - name: CLAUDE_ENDPOINT
-    value: "databricks-claude-sonnet-4"
+    value: "databricks-claude-sonnet-5"
   # pii_only = mask all sensitive ENTITIES (clients, brands, people, projects,
   # signatures, PII) but keep generic body text. Do not use all_text.
   - name: TEXT_MODE

@@ -138,7 +138,7 @@ def _get_pipeline():
         # Endpoint host + model are env-driven so the app isn't pinned to a dead
         # workspace. Default to the same workspace as DATABRICKS_PROFILE.
         host = os.environ.get("DATABRICKS_HOST", "https://e2-demo-west.cloud.databricks.com").rstrip("/")
-        model = os.environ.get("CLAUDE_ENDPOINT", "databricks-claude-sonnet-4")
+        model = os.environ.get("CLAUDE_ENDPOINT", "databricks-claude-sonnet-5")
         endpoint = f"{host}/serving-endpoints/{model}/invocations"
     cfg = PipelineConfig(do_logos=True, do_faces=True, do_text=TEXT_CAPABLE,
                          use_clip_gate=True,

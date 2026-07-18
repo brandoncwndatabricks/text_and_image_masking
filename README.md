@@ -165,7 +165,7 @@ offline. The notebook has equivalent cells (`evaluate_and_log` / `sweep_and_log`
 - **Text phase requires Databricks** — `ai_parse_document` is a platform function;
   the logo + face phases are fully local. Run with `do_text=True` for full coverage
   (wordmark logos and PII depend on it). Validated live on a Databricks serverless
-  session with `databricks-claude-sonnet-4` as the PII classifier.
+  session with `databricks-claude-sonnet-5` as the entity/PII classifier.
 - **PII classifier selectivity varies doc-to-doc** — in `text_mode="pii_only"`
   the Claude classifier is a judgment call, so exactly which lines it masks (names,
   fees, addresses) is not perfectly consistent across documents. Use

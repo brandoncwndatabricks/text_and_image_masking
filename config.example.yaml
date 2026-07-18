@@ -11,7 +11,7 @@
 
 # ── Text / PII classifier (Claude) ────────────────────────────────────────────
 # System foundation-model endpoint — queryable by all users, no grant needed.
-CLAUDE_ENDPOINT: databricks-claude-sonnet-4
+CLAUDE_ENDPOINT: databricks-claude-sonnet-5
 
 # How much to mask. Keep "pii_only": it masks all SENSITIVE ENTITIES the
 # classifier flags (clients, brands, people, projects, signatures, PII…) while
