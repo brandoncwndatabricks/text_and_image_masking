@@ -61,16 +61,31 @@ SIGNOFF_CUES = [
 NAME_ROLE_CAPTION = re.compile(r"^[A-Z][A-Za-z.\-]+(?:\s+[A-Z][A-Za-z.\-]+){0,3},\s+[A-Z]")
 
 SENSITIVE_TEXT_PROMPT = """\
-You are reviewing text elements extracted from an image. Identify which items \
-contain sensitive or identifiable information that must be masked, including:
-- Company names, brand names, or organization names
-- Person names (first name, last name, or full name)
-- Street addresses, cities, postal codes
-- Phone numbers or fax numbers
-- Email addresses or website URLs tied to a specific company or person
-- Any other personally identifiable information (PII)
+You are redacting documents for a professional-services firm (consulting, audit, \
+tax, advisory) that handles confidential client engagements. Err on the side of \
+masking: flag ANY text element that identifies a client, a person, an \
+organization, a brand, an engagement, or that is otherwise sensitive. Mask an \
+item if it contains ANY of:
+- Customer / client names and any customer entity (subsidiaries, affiliates, \
+  fund or deal names, ticker symbols)
+- Company, organization, or firm names (the firm's own name and third parties)
+- Brand names, product names, or brand wordmarks rendered as text \
+  (e.g. "AUDI", "Gartner", "Salesforce") — treat a standalone brand word as sensitive
+- Employee / person names — partners, staff, signatories, contacts \
+  (first, last, or full name), and titles tied to a named person
+- Project, engagement, matter, or codename identifiers (e.g. "Project Atlas", \
+  engagement numbers, matter IDs)
+- Signature blocks and "signed by / approved by" names
+- Street addresses, cities, postal / ZIP codes, countries tied to a party
+- Phone, fax, email addresses, and website URLs
+- Government / financial identifiers: SSN, EIN/TIN, routing/account numbers, \
+  IBAN, card numbers, case numbers
+- Monetary amounts, fees, or figures tied to a specific client or engagement
+- Any other personally identifiable or client-confidential information
 
-Do NOT flag generic words, standalone numbers without context, or common nouns."""
+Do NOT flag purely generic boilerplate that identifies no one — common nouns, \
+section headings like "Introduction" or "Summary", generic legal disclaimers, \
+page numbers, or dates with no other identifying context. When in doubt, MASK."""
 
 
 def regex_is_sensitive(text: str) -> bool:
@@ -209,15 +224,23 @@ def filter_sensitive(
     claude_endpoint: Optional[str] = None,
     profile: str = "e2-field-eng-west",
     prompt: str = SENSITIVE_TEXT_PROMPT,
-    max_retries: int = 3,
+    max_retries: int = 2,
     img_h: float = None,
+    on_error: str = "mask_all",
 ) -> List[Detection]:
     """Decide which text Detections to mask.
 
     mode='all_text' → mask every text box.
-    mode='pii_only' → regex PII always masked; Claude refines the remainder;
-                      if Claude is unavailable, fall back to regex hits only
-                      (NOT mask-everything — that was v4's over-masking bug).
+    mode='pii_only' → regex PII always masked; Claude refines the remainder.
+
+    Fail-safe: if the Claude classifier is unavailable after one retry, this
+    does NOT silently drop to regex-only (which let brand wordmarks slip
+    through). Instead it applies ``on_error``:
+      - 'mask_all' (default): mask every text box — never under-mask a
+        confidential document when the classifier is down;
+      - 'regex_only': mask only deterministic regex PII hits.
+    Either way the failure is recorded on each affected detection's
+    ``meta['classifier_error']`` so the caller can surface it to the user.
     Sets ``Detection.mask`` accordingly and returns the full list (so the
     overlay can show kept text too).
     """
@@ -240,26 +263,50 @@ def filter_sensitive(
         d.meta["regex_pii"] = hit
         regex_flags.append(hit)
 
-    # Claude pass — refine the non-regex items
+    # Claude pass — refine the non-regex items. Retries once inside
+    # _claude_sensitive_indices; on hard failure it raises and we apply the
+    # fail-safe policy (default: mask everything) + record the error.
     claude_indices = None
+    classifier_error = None
     if claude_endpoint:
-        claude_indices = _claude_sensitive_indices(
-            text_dets, claude_endpoint, profile, prompt, max_retries
-        )
+        try:
+            claude_indices = _claude_sensitive_indices(
+                text_dets, claude_endpoint, profile, prompt, max_retries
+            )
+        except ClassifierUnavailable as e:
+            classifier_error = str(e)
 
     for i, d in enumerate(text_dets):
         if regex_flags[i]:
             d.mask = True
         elif claude_indices is not None:
             d.mask = i in claude_indices
+        elif classifier_error is not None:
+            # Fail-safe: classifier down → don't silently under-mask.
+            d.mask = (on_error == "mask_all")
+            d.meta["classifier_error"] = classifier_error
         else:
-            # Claude unavailable → conservative-but-not-blind: regex only.
+            # No endpoint configured at all → regex hits only.
             d.mask = False
-            d.meta["claude_unavailable"] = True
     return dets
 
 
-def _claude_sensitive_indices(text_dets, endpoint, profile, prompt, max_retries):
+class ClassifierUnavailable(RuntimeError):
+    """Raised when the Claude PII classifier could not be reached/parsed.
+
+    Carries the last underlying error so callers can surface it to the user
+    (instead of silently under-masking) and apply a fail-safe policy.
+    """
+
+
+def _claude_sensitive_indices(text_dets, endpoint, profile, prompt, max_retries=2):
+    """Return the set of indices Claude flags as sensitive.
+
+    Tries the call, and on failure retries ONCE more (max_retries=2 total). If
+    it still fails, raises ClassifierUnavailable with the last error — the
+    caller decides the fail-safe (this module no longer silently drops to
+    regex-only, which is what let brand wordmarks like "AUDI" slip through).
+    """
     import requests
 
     texts_str = "\n".join(f'{i}: {d.meta.get("content", d.label)}' for i, d in enumerate(text_dets))
@@ -268,6 +315,7 @@ def _claude_sensitive_indices(text_dets, endpoint, profile, prompt, max_retries)
         "Return a JSON array of index numbers (0-based) for items that should be "
         "masked. Return ONLY the JSON array. Example: [0, 2, 5]"
     )
+    last_err = "unknown error"
     for attempt in range(max_retries):
         try:
             token = _get_token(profile)
@@ -282,8 +330,9 @@ def _claude_sensitive_indices(text_dets, endpoint, profile, prompt, max_retries)
                 if raw.startswith("```"):
                     raw = raw.split("```")[1].lstrip("json").strip()
                 return set(int(i) for i in json.loads(raw) if isinstance(i, int))
-        except Exception:
-            pass
+            last_err = f"HTTP {resp.status_code}: {resp.text[:200]}"
+        except Exception as e:  # noqa: BLE001
+            last_err = f"{type(e).__name__}: {e}"
         if attempt < max_retries - 1:
             time.sleep(3 * (attempt + 1))
-    return None  # signal unavailable → caller uses regex-only fallback
+    raise ClassifierUnavailable(last_err)

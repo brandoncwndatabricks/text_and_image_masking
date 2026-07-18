@@ -99,12 +99,33 @@ def run_stages(img, opt, *, vision_fn, text_fn, pii_fn, step_delay: float = 0.0)
         yield {"event": "stage", "id": "text_id", "status": "active"}
         if step_delay: time.sleep(step_delay)
         contents = [d.meta.get("content", d.label) for d in text_only]
-        claude_idx = pii_fn(contents) if (want_text and pii_fn) else None
+        # Classify. pii_fn retries once internally, then raises
+        # ClassifierUnavailable. On failure we FAIL SAFE (mask all text) and
+        # surface the error to the UI rather than silently under-masking.
+        claude_idx = None
+        classifier_error = None
+        if want_text and pii_fn:
+            try:
+                claude_idx = pii_fn(contents)
+            except text_pii.ClassifierUnavailable as e:
+                classifier_error = str(e)
+                yield {"event": "warn", "where": "pii_classifier",
+                       "msg": f"PII classifier unavailable ({e}); masking all text as a fail-safe."}
         for i, d in enumerate(text_only):
-            d.mask = bool(want_text and (text_pii.regex_is_sensitive(contents[i])
-                                         or (claude_idx is not None and i in claude_idx)))
+            if not want_text:
+                d.mask = False
+            elif text_pii.regex_is_sensitive(contents[i]):
+                d.mask = True
+            elif claude_idx is not None:
+                d.mask = i in claude_idx
+            else:
+                # classifier failed → mask-all fail-safe
+                d.mask = classifier_error is not None
+                if classifier_error:
+                    d.meta["classifier_error"] = classifier_error
         flagged = [d for d in text_only if d.mask]
         yield {"event": "text_pii", "flagged": len(flagged), "screened": len(text_only),
+               "error": classifier_error,
                "items": [{"text": (d.meta.get("content", d.label) or "")[:60]}
                          for d in flagged][:12]}
         yield {"event": "stage", "id": "text_id", "status": "done"}

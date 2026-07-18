@@ -128,17 +128,22 @@ def claude_pii_indices(contents):
     prompt = (f"{text_pii.SENSITIVE_TEXT_PROMPT}\n\nText items to review:\n{texts}\n\n"
               "Return a JSON array of index numbers (0-based) for items that should be masked.\n"
               "Return ONLY the JSON array. Example: [0, 2, 5]")
-    try:
-        from databricks.sdk.service.serving import ChatMessage, ChatMessageRole
-        resp = ws().serving_endpoints.query(
-            name=CLAUDE_ENDPOINT,
-            messages=[ChatMessage(role=ChatMessageRole.USER, content=prompt)])
-        raw = resp.choices[0].message.content.strip()
-        if raw.startswith("```"):
-            raw = raw.split("```")[1].lstrip("json").strip()
-        return set(int(i) for i in json.loads(raw) if isinstance(i, int))
-    except Exception:
-        return None  # fall back to regex-only
+    from databricks.sdk.service.serving import ChatMessage, ChatMessageRole
+    last_err = "unknown error"
+    for attempt in range(2):  # try, then retry once
+        try:
+            resp = ws().serving_endpoints.query(
+                name=CLAUDE_ENDPOINT,
+                messages=[ChatMessage(role=ChatMessageRole.USER, content=prompt)])
+            raw = resp.choices[0].message.content.strip()
+            if raw.startswith("```"):
+                raw = raw.split("```")[1].lstrip("json").strip()
+            return set(int(i) for i in json.loads(raw) if isinstance(i, int))
+        except Exception as e:  # noqa: BLE001
+            last_err = f"{type(e).__name__}: {e}"
+    # Both attempts failed → signal unavailable so the caller can surface the
+    # error and apply the fail-safe (mask-all) instead of silently under-masking.
+    raise text_pii.ClassifierUnavailable(last_err)
 
 
 def _events(req: MaskRequest):

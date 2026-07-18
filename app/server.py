@@ -131,15 +131,19 @@ def _get_pipeline():
         return _PIPE
     from pipeline.run import MaskingPipeline, PipelineConfig
     spark = endpoint = None
+    profile = os.environ.get("DATABRICKS_PROFILE", "e2-demo-west")
     if TEXT_CAPABLE:
         from databricks.connect import DatabricksSession
-        spark = DatabricksSession.builder.profile(
-            os.environ.get("DATABRICKS_PROFILE", "e2-field-eng-west")).serverless(True).getOrCreate()
-        endpoint = ("https://e2-demo-field-eng.cloud.databricks.com"
-                    "/serving-endpoints/databricks-claude-sonnet-4/invocations")
+        spark = DatabricksSession.builder.profile(profile).serverless(True).getOrCreate()
+        # Endpoint host + model are env-driven so the app isn't pinned to a dead
+        # workspace. Default to the same workspace as DATABRICKS_PROFILE.
+        host = os.environ.get("DATABRICKS_HOST", "https://e2-demo-west.cloud.databricks.com").rstrip("/")
+        model = os.environ.get("CLAUDE_ENDPOINT", "databricks-claude-sonnet-4")
+        endpoint = f"{host}/serving-endpoints/{model}/invocations"
     cfg = PipelineConfig(do_logos=True, do_faces=True, do_text=TEXT_CAPABLE,
-                         use_clip_gate=True, text_mode="pii_only")
-    _PIPE = MaskingPipeline(cfg, spark=spark, claude_endpoint=endpoint)
+                         use_clip_gate=True,
+                         text_mode=os.environ.get("TEXT_MODE", "pii_only"))
+    _PIPE = MaskingPipeline(cfg, spark=spark, claude_endpoint=endpoint, profile=profile)
     return _PIPE
 
 

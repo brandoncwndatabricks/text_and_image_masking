@@ -55,6 +55,7 @@
       case "render": state.img.original = ev.original; break;
       case "parse": state.parse = { n: ev.n, sample: ev.sample }; break;
       case "text_pii": state.textpii = { flagged: ev.flagged, screened: ev.screened, items: ev.items || [] }; break;
+      case "warn": state.warn = ev.msg; break;
       case "vision": state.detections = (state.detections || []).concat(ev.detections); break;
       case "overlay": state.img.overlay = ev.overlay; state.detections = ev.detections; break;
       case "masked": state.img.masked = ev.masked; break;
@@ -66,7 +67,7 @@
 
   function run() {
     if (!state.file) { state.err = "Upload a document or image first."; render(); return; }
-    state.phase = "running"; state.err = ""; state.showOverlay = false;
+    state.phase = "running"; state.err = ""; state.warn = ""; state.showOverlay = false;
     state.stages = []; state.img = {}; state.parse = null; state.textpii = null;
     state.detections = []; state.counts = null; render();
 
@@ -219,6 +220,7 @@
         '<button class="run" id="run"' + (runDisabled ? " disabled" : "") + ">" + runLabel + "</button>" +
         (notReady ? '<div class="hint">GPU vision endpoint is spinning up — this can take ~2 min on first use. The button enables when it\'s ready.</div>' : "") +
         (state.err ? '<div class="err">' + esc(state.err) + "</div>" : "") +
+        (state.warn ? '<div class="warn">⚠ ' + esc(state.warn) + "</div>" : "") +
       '</aside><main class="stage">' + stage + "</main></div></div>";
 
     wire();

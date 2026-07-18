@@ -42,10 +42,11 @@ class PipelineConfig:
 
 class MaskingPipeline:
     def __init__(self, config: PipelineConfig = None, spark=None,
-                 claude_endpoint: Optional[str] = None):
+                 claude_endpoint: Optional[str] = None, profile: str = "e2-demo-west"):
         self.cfg = config or PipelineConfig()
         self.spark = spark
         self.claude_endpoint = claude_endpoint
+        self.profile = profile          # used to mint the token for the Claude REST call
         self._logo = self._face = self._text = self._clip = None
 
     # lazy loaders so we only pay for the detectors we use
@@ -98,6 +99,7 @@ class MaskingPipeline:
             text_dets = text_pii.filter_sensitive(
                 text_dets, mode=self.cfg.text_mode,
                 claude_endpoint=self.claude_endpoint,
+                profile=self.profile,
                 img_h=image.size[1],
             )
             dets += text_dets
