@@ -33,9 +33,29 @@ from pipeline.boxes import Detection                           # noqa: E402
 from pipeline import text_pii                                  # noqa: E402 (regex/prompt/flag_signatures — pure)
 from _stream import run_stages, sse, aggregate                 # noqa: E402 (shared staged orchestration)
 
-VISION_ENDPOINT = os.environ.get("VISION_ENDPOINT", "image-masking-vision")
-SQL_WAREHOUSE_ID = os.environ.get("SQL_WAREHOUSE_ID", "")
-CLAUDE_ENDPOINT = os.environ.get("CLAUDE_ENDPOINT", "databricks-claude-sonnet-4")
+# Config resolution: env var → config.yaml (repo root or app/) → default.
+# On Databricks Apps, app.yaml `env:` sets the env vars (they win). config.yaml
+# is for local runs and is git-ignored. See config.example.yaml.
+def _load_config_file():
+    for d in (os.path.dirname(_HERE), _HERE):
+        p = os.path.join(d, "config.yaml")
+        if os.path.isfile(p):
+            try:
+                import yaml
+                with open(p) as f:
+                    return yaml.safe_load(f) or {}
+            except Exception:      # yaml missing or unparsable → env/defaults only
+                return {}
+    return {}
+
+_CFG = _load_config_file()
+def cfg(name, default=""):
+    return os.environ.get(name) or _CFG.get(name) or default
+
+VISION_ENDPOINT = cfg("VISION_ENDPOINT", "image-masking-vision")
+SQL_WAREHOUSE_ID = cfg("SQL_WAREHOUSE_ID", "")
+CLAUDE_ENDPOINT = cfg("CLAUDE_ENDPOINT", "databricks-claude-sonnet-4")
+TEXT_MODE = cfg("TEXT_MODE", "pii_only")
 AI_PARSE_MAX_DIM = 1800   # cap image sent to ai_parse (SQL literal size); boxes scaled back
 
 app = FastAPI(title="Redaction Studio — Image Masking v5")

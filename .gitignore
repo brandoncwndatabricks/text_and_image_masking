@@ -10,3 +10,6 @@ dist/
 # generated at run time
 outputs/
 test_set/outputs/
+
+# local deploy config (see config.example.yaml)
+config.yaml

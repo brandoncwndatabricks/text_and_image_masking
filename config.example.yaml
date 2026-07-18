@@ -1,0 +1,35 @@
+# Optional deployment config for the redaction app.
+#
+# Copy this to `config.yaml` (git-ignored) and fill in YOUR workspace's values,
+# OR set the same names as environment variables. Resolution order at runtime:
+#   1. environment variable  (e.g. app.yaml `env:` on Databricks Apps)
+#   2. config.yaml in the repo root or app/ dir
+#   3. built-in default (shown below)
+#
+# On Databricks Apps the values in app/app.yaml `env:` win; use this file for
+# local runs and to document what each deployment needs.
+
+# ── Text / PII classifier (Claude) ────────────────────────────────────────────
+# System foundation-model endpoint — queryable by all users, no grant needed.
+CLAUDE_ENDPOINT: databricks-claude-sonnet-4
+
+# How much to mask. Keep "pii_only": it masks all SENSITIVE ENTITIES the
+# classifier flags (clients, brands, people, projects, signatures, PII…) while
+# keeping generic body text. "all_text" masks every text element (blunt).
+TEXT_MODE: pii_only
+
+# ── ai_parse_document (text extraction) ───────────────────────────────────────
+# Prefer a SERVERLESS SQL warehouse. ai_parse_document runs serverless-side, so
+# a 2X-Small serverless PRO warehouse with a short auto-stop is ideal (cheap,
+# scales to zero). The app's service principal needs CAN_USE on it.
+SQL_WAREHOUSE_ID: ""            # e.g. 75fd8278393d07eb
+
+# ── Vision (logos + faces) — GPU Model Serving endpoint ───────────────────────
+# Scale-to-zero GPU_SMALL endpoint hosting Grounding DINO + CLIP + YuNet.
+# The app's service principal needs CAN_QUERY on it.
+VISION_ENDPOINT: image-masking-vision
+
+# ── Local dev only (server.py) ────────────────────────────────────────────────
+# Profile used to mint tokens + open the databricks-connect serverless session.
+DATABRICKS_PROFILE: e2-demo-west
+DATABRICKS_HOST: https://e2-demo-west.cloud.databricks.com

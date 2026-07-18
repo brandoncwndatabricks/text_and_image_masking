@@ -1,8 +1,15 @@
 command: ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
 env:
+  # See config.example.yaml for what each of these means.
   - name: VISION_ENDPOINT
     value: "image-masking-vision"
+  # Prefer a SERVERLESS SQL warehouse (cheap, scales to zero). Set to your
+  # workspace's serverless warehouse id; the app service principal needs CAN_USE.
   - name: SQL_WAREHOUSE_ID
-    value: "a3ac37025ff93449"
+    value: "75fd8278393d07eb"
   - name: CLAUDE_ENDPOINT
     value: "databricks-claude-sonnet-4"
+  # pii_only = mask all sensitive ENTITIES (clients, brands, people, projects,
+  # signatures, PII) but keep generic body text. Do not use all_text.
+  - name: TEXT_MODE
+    value: "pii_only"
