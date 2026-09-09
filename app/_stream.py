@@ -49,11 +49,18 @@ def _det_json(d: Detection) -> dict:
             "box": [round(float(v), 1) for v in d.box], "mask": bool(d.mask)}
 
 
-def run_stages(img, opt, *, vision_fn, text_fn, pii_fn, step_delay: float = 0.0):
-    """Yield staged redaction events for one image. See module docstring."""
+def run_stages(img, opt, *, vision_fn, text_fn, pii_fn, sensitive_fn=None, step_delay: float = 0.0):
+    """Yield staged redaction events for one image. See module docstring.
+
+    ``sensitive_fn(img) -> [Detection]`` is the optional VLM lane (sensitive
+    items + in-image PII); it runs concurrently with vision under the same
+    image-detection stage. Not GPU-bound, so it is independent of the warm gate.
+    """
     t0 = time.time()
     W, H = img.size
     want_vision = bool(opt.get("logos") or opt.get("faces"))
+    want_sensitive = bool(opt.get("sensitive")) and sensitive_fn is not None
+    want_img = want_vision or want_sensitive
     want_text = bool(opt.get("text"))
     want_sig = bool(opt.get("signatures"))
     do_text = want_text or want_sig
@@ -65,16 +72,24 @@ def run_stages(img, opt, *, vision_fn, text_fn, pii_fn, step_delay: float = 0.0)
     # Vision (logos+faces) is the slow / GPU-cold-start path → start it now and
     # let the text phase run while it warms up.
     vbox = {"dets": [], "err": None}
-    vthread = None
-    if want_vision and vision_fn:
+    sbox = {"dets": [], "err": None}
+    ithreads = []
+    if want_img:
         yield {"event": "stage", "id": "img_detect", "status": "active"}
-
-        def _vis():
-            try:
-                vbox["dets"] = vision_fn(img, opt) or []
-            except Exception as e:                          # noqa: BLE001
-                vbox["err"] = str(e)
-        vthread = threading.Thread(target=_vis, daemon=True); vthread.start()
+        if want_vision and vision_fn:
+            def _vis():
+                try:
+                    vbox["dets"] = vision_fn(img, opt) or []
+                except Exception as e:                      # noqa: BLE001
+                    vbox["err"] = str(e)
+            t = threading.Thread(target=_vis, daemon=True); t.start(); ithreads.append(t)
+        if want_sensitive:
+            def _sens():
+                try:
+                    sbox["dets"] = sensitive_fn(img) or []
+                except Exception as e:                      # noqa: BLE001
+                    sbox["err"] = str(e)
+            t = threading.Thread(target=_sens, daemon=True); t.start(); ithreads.append(t)
     else:
         yield {"event": "stage", "id": "img_detect", "status": "skip"}
         yield {"event": "stage", "id": "img_mask", "status": "skip"}
@@ -138,14 +153,17 @@ def run_stages(img, opt, *, vision_fn, text_fn, pii_fn, step_delay: float = 0.0)
     # so the SSE connection keeps flowing bytes and the Databricks Apps ingress
     # (~120s idle timeout) doesn't drop the stream.
     vdets = []
-    if vthread:
-        while vthread.is_alive():
-            vthread.join(timeout=5.0)
-            if vthread.is_alive():
+    if ithreads:
+        while any(t.is_alive() for t in ithreads):
+            for t in ithreads:
+                t.join(timeout=5.0)
+            if any(t.is_alive() for t in ithreads):
                 yield {"event": "heartbeat", "at": "img_detect"}
         if vbox["err"]:
             yield {"event": "warn", "where": "vision", "msg": vbox["err"]}
-        vdets = vbox["dets"]
+        if sbox["err"]:
+            yield {"event": "warn", "where": "sensitive", "msg": sbox["err"]}
+        vdets = list(vbox["dets"]) + list(sbox["dets"])
         yield {"event": "vision", "detections": [_det_json(d) for d in vdets]}
         yield {"event": "stage", "id": "img_detect", "status": "done"}
 
@@ -155,6 +173,7 @@ def run_stages(img, opt, *, vision_fn, text_fn, pii_fn, step_delay: float = 0.0)
     if opt.get("faces"): keep.add("face")
     if want_text: keep.add("text")
     if want_sig: keep.add("signature")
+    if want_sensitive: keep.add("sensitive")
     shown = [d for d in merge_sources(list(vdets) + list(text_dets)) if d.source in keep]
     final = [d for d in shown if d.mask]
 
@@ -166,12 +185,13 @@ def run_stages(img, opt, *, vision_fn, text_fn, pii_fn, step_delay: float = 0.0)
 
     # ── Masking ───────────────────────────────────────────────────────────────
     if do_text: yield {"event": "stage", "id": "text_mask", "status": "active"}
-    if want_vision: yield {"event": "stage", "id": "img_mask", "status": "active"}
+    if want_img: yield {"event": "stage", "id": "img_mask", "status": "active"}
     styles = {"face": opt.get("face_style", "blur"), "logo": opt.get("other_style", "black"),
-              "text": opt.get("other_style", "black"), "signature": opt.get("other_style", "black")}
+              "text": opt.get("other_style", "black"), "signature": opt.get("other_style", "black"),
+              "sensitive": opt.get("other_style", "black")}
     yield {"event": "masked", "masked": to_data_url(apply_masks(img, final, style_overrides=styles))}
     if do_text: yield {"event": "stage", "id": "text_mask", "status": "done"}
-    if want_vision: yield {"event": "stage", "id": "img_mask", "status": "done"}
+    if want_img: yield {"event": "stage", "id": "img_mask", "status": "done"}
 
     # ── Done ──────────────────────────────────────────────────────────────────
     yield {"event": "stage", "id": "final", "status": "active"}

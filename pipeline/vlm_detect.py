@@ -13,8 +13,13 @@ Boxes come back in absolute pixels of the (possibly downscaled) image sent to
 the model; we map them back to the original frame, clamp to bounds, and drop
 degenerate / whole-image boxes. Reliability was validated (IoU ~0.95–1.0 on a
 synthetic objects image; tight boxes on real document PII lines; screens found
-in an office scene). On any transport/parse failure this raises so the caller
-can fall back to the open-vocab ``SensitiveObjectDetector``.
+in an office scene). On any transport/parse failure this raises ``VLMUnavailable``
+so the caller can fall back to the open-vocab ``SensitiveObjectDetector``.
+
+The prompt build (``build_prompt``) and response parse (``boxes_from_text``) are
+transport-agnostic so the torch-free Databricks App can reuse them with its own
+service-principal auth (see app/app.py); ``detect_sensitive_vlm`` is the local /
+notebook path (REST + CLI token).
 """
 
 from __future__ import annotations
@@ -43,8 +48,36 @@ or a government / financial identifier (SSN, EIN, IBAN, account, card, case no.)
 Do NOT flag generic decorative graphics, section headings, or boilerplate that \
 identifies no one."""
 
+DEFAULT_MAX_DIM = 1600
 
-def _extract_text(content) -> str:
+
+class VLMUnavailable(RuntimeError):
+    """Raised when the vision endpoint could not be reached/parsed."""
+
+
+def build_prompt(sw: int, sh: int, prompt: str = SENSITIVE_VLM_PROMPT) -> str:
+    """The full instruction, pinning the coordinate frame to the SENT image."""
+    return (
+        f"{prompt}\n\nThe image is {sw} pixels wide and {sh} pixels tall. "
+        "Return ONLY a JSON array; each item "
+        '{"label":"<what it is>","box":[x0,y0,x1,y1]} with coordinates in '
+        f"ABSOLUTE PIXELS (x in 0..{sw}, y in 0..{sh}), origin top-left. "
+        "No prose, no code fence."
+    )
+
+
+def prepare_image(image: Image.Image, max_dim: int = DEFAULT_MAX_DIM):
+    """Downscale for the request; return (b64_jpeg, sent_w, sent_h, orig_w, orig_h)."""
+    image = image.convert("RGB")
+    W, H = image.size
+    send = image.copy()
+    send.thumbnail((max_dim, max_dim))
+    sw, sh = send.size
+    buf = io.BytesIO(); send.save(buf, "JPEG", quality=90)
+    return base64.b64encode(buf.getvalue()).decode(), sw, sh, W, H
+
+
+def extract_text(content) -> str:
     """Claude reasoning models return a list of blocks; older models a string."""
     if isinstance(content, list):
         return "".join(
@@ -52,6 +85,10 @@ def _extract_text(content) -> str:
             if isinstance(b, dict) and b.get("type") == "text"
         )
     return content or ""
+
+
+# back-compat alias
+_extract_text = extract_text
 
 
 def _rescale_box(b, sw, sh):
@@ -65,74 +102,19 @@ def _rescale_box(b, sw, sh):
     return [float(b[0]), float(b[1]), float(b[2]), float(b[3])]   # absolute pixels
 
 
-class VLMUnavailable(RuntimeError):
-    """Raised when the vision endpoint could not be reached/parsed."""
-
-
-def detect_sensitive_vlm(
-    image: Image.Image,
-    endpoint: str,
-    profile: str = "e2-demo-west",
-    max_dim: int = 1600,
-    max_area_frac: float = 0.6,
-    pad_frac: float = 0.04,
-    timeout: int = 90,
-    prompt: str = SENSITIVE_VLM_PROMPT,
-) -> List[Detection]:
-    """Return sensitive-content Detections from a Claude vision endpoint.
-
-    Raises ``VLMUnavailable`` on any transport/parse failure (so the caller can
-    fall back to the open-vocab detector). Returns ``[]`` only when the model
-    genuinely reports nothing sensitive.
-    """
-    import requests
-
-    image = image.convert("RGB")
-    W, H = image.size
-    send = image.copy()
-    send.thumbnail((max_dim, max_dim))
-    sw, sh = send.size
-    sx, sy = W / sw, H / sh                          # sent-frame → original
-    buf = io.BytesIO(); send.save(buf, "JPEG", quality=90)
-    b64 = base64.b64encode(buf.getvalue()).decode()
-
-    full_prompt = (
-        f"{prompt}\n\nThe image is {sw} pixels wide and {sh} pixels tall. "
-        "Return ONLY a JSON array; each item "
-        '{"label":"<what it is>","box":[x0,y0,x1,y1]} with coordinates in '
-        f"ABSOLUTE PIXELS (x in 0..{sw}, y in 0..{sh}), origin top-left. "
-        "No prose, no code fence."
-    )
-    payload = {
-        "messages": [{"role": "user", "content": [
-            {"type": "text", "text": full_prompt},
-            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}},
-        ]}],
-        "max_tokens": 1500,
-    }
-    try:
-        token = _get_token(profile)
-        resp = requests.post(
-            endpoint,
-            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
-            json=payload, timeout=timeout,
-        )
-        if resp.status_code != 200:
-            raise VLMUnavailable(f"HTTP {resp.status_code}: {resp.text[:200]}")
-        raw = _extract_text(resp.json()["choices"][0]["message"]["content"]).strip()
-    except VLMUnavailable:
-        raise
-    except Exception as e:  # noqa: BLE001
-        raise VLMUnavailable(f"{type(e).__name__}: {e}")
-
-    m = re.search(r"\[.*\]", raw, re.S)
+def boxes_from_text(raw: str, sw: int, sh: int, W: int, H: int,
+                    max_area_frac: float = 0.6, pad_frac: float = 0.04) -> List[Detection]:
+    """Parse the model's JSON array into ``source='sensitive'`` Detections on the
+    ORIGINAL frame. Raises ``VLMUnavailable`` if no JSON array is present."""
+    m = re.search(r"\[.*\]", raw or "", re.S)
     if not m:
-        raise VLMUnavailable(f"no JSON array in response: {raw[:160]}")
+        raise VLMUnavailable(f"no JSON array in response: {(raw or '')[:160]}")
     try:
         items = json.loads(m.group(0))
     except Exception as e:  # noqa: BLE001
         raise VLMUnavailable(f"bad JSON: {e}")
 
+    sx, sy = W / sw, H / sh
     dets: List[Detection] = []
     for it in items:
         if not isinstance(it, dict):
@@ -156,3 +138,43 @@ def detect_sensitive_vlm(
             meta={"backend": "vlm"},
         ))
     return dets
+
+
+def detect_sensitive_vlm(
+    image: Image.Image,
+    endpoint: str,
+    profile: str = "e2-demo-west",
+    max_dim: int = DEFAULT_MAX_DIM,
+    max_area_frac: float = 0.6,
+    pad_frac: float = 0.04,
+    timeout: int = 90,
+    prompt: str = SENSITIVE_VLM_PROMPT,
+) -> List[Detection]:
+    """Local / notebook path: REST + CLI token. Raises ``VLMUnavailable`` on any
+    transport/parse failure; returns ``[]`` only when the model reports nothing."""
+    import requests
+
+    b64, sw, sh, W, H = prepare_image(image, max_dim)
+    payload = {
+        "messages": [{"role": "user", "content": [
+            {"type": "text", "text": build_prompt(sw, sh, prompt)},
+            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}},
+        ]}],
+        "max_tokens": 1500,
+    }
+    try:
+        token = _get_token(profile)
+        resp = requests.post(
+            endpoint,
+            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+            json=payload, timeout=timeout,
+        )
+        if resp.status_code != 200:
+            raise VLMUnavailable(f"HTTP {resp.status_code}: {resp.text[:200]}")
+        raw = extract_text(resp.json()["choices"][0]["message"]["content"]).strip()
+    except VLMUnavailable:
+        raise
+    except Exception as e:  # noqa: BLE001
+        raise VLMUnavailable(f"{type(e).__name__}: {e}")
+
+    return boxes_from_text(raw, sw, sh, W, H, max_area_frac, pad_frac)

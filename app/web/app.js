@@ -10,8 +10,9 @@
     { key: "faces", label: "Faces", hint: "people / headshots", color: "#00c8ff" },
     { key: "text", label: "Text / PII", hint: "names, addresses, IDs", color: "#ffd200" },
     { key: "signatures", label: "Signatures", hint: "handwritten sign-offs", color: "#c850ff" },
+    { key: "sensitive", label: "Sensitive items", hint: "IDs, cards, plates, screens, in-image text", color: "#ff8c00" },
   ];
-  var SRC_BORDER = { logo: "#ff3c3c", face: "#00c8ff", text: "#ffd200", signature: "#c850ff" };
+  var SRC_BORDER = { logo: "#ff3c3c", face: "#00c8ff", text: "#ffd200", signature: "#c850ff", sensitive: "#ff8c00" };
 
   // Inline (no-CDN) stage icons — Material Design path data.
   var P = {
@@ -27,7 +28,7 @@
 
   var state = {
     file: null, fileName: "", isImage: false,
-    opt: { logos: true, faces: true, text: true, signatures: true,
+    opt: { logos: true, faces: true, text: true, signatures: true, sensitive: false,
            face_style: "blur", other_style: "black", keep_databricks: true },
     phase: "idle", mock: false, err: "", dragOver: false, showOverlay: false,
     stages: [], img: {}, parse: null, textpii: null, detections: [], counts: null, timing: 0,
