@@ -63,6 +63,8 @@ class ClipGate:
         logo_min_prob: float = 0.55,
         databricks_min_sim: float = 0.80,
         refs_dir: str = _REFS_DIR,
+        flat_fill_max: float = 0.85,
+        edge_min: float = 0.04,
     ):
         from transformers import CLIPModel, CLIPProcessor
 
@@ -72,7 +74,43 @@ class ClipGate:
         self.processor = CLIPProcessor.from_pretrained(model_id)
         self.logo_min_prob = logo_min_prob
         self.databricks_min_sim = databricks_min_sim
+        # Structural pre-filter (see is_flat_fill): a crop is rejected as a solid
+        # shape when it is BOTH near-uniform in color AND has almost no internal
+        # edges. Set flat_fill_max >= 1.0 to disable.
+        self.flat_fill_max = flat_fill_max
+        self.edge_min = edge_min
         self.ref_embeds = self._load_reference_embeds(refs_dir)
+
+    def is_flat_fill(self, crop: Image.Image) -> bool:
+        """True if the crop is a flat colored block (chart bar / shape / table
+        fill), not a brand mark.
+
+        CLIP judges each cropped box in ISOLATION, and a solid colored rectangle
+        read out of context can score as a minimalist "logo" — that is how chart
+        bars and colored blocks leaked through the gate. A real logo (wordmark or
+        icon) always carries internal detail: text strokes, multiple colors,
+        edges. So we reject a crop only when it is BOTH near-single-color AND
+        edge-poor — a combination true logos never hit (even a logo on a flat
+        letterhead is edge-rich from its text). Requiring both conditions keeps
+        this from ever dropping a real mark.
+        """
+        import numpy as np
+        import cv2
+
+        a = np.asarray(crop.convert("RGB"))
+        if a.size == 0:
+            return False
+        # (1) color uniformity: fraction of pixels in the most common 8-per-
+        # channel color bucket. A solid bar is ~one bucket; a mark is not.
+        q = (a // 32).reshape(-1, 3)
+        keys = q[:, 0] * 64 + q[:, 1] * 8 + q[:, 2]
+        _, counts = np.unique(keys, return_counts=True)
+        flat_frac = counts.max() / keys.shape[0]
+        # (2) edge density: fraction of Canny edge pixels. Flat fills have almost
+        # none; text/marks are edge-rich.
+        gray = cv2.cvtColor(a, cv2.COLOR_RGB2GRAY)
+        edge_frac = float(np.count_nonzero(cv2.Canny(gray, 50, 150))) / gray.size
+        return flat_frac >= self.flat_fill_max and edge_frac <= self.edge_min
 
     @torch.no_grad()
     def _embed_image(self, img: Image.Image) -> torch.Tensor:
@@ -135,6 +173,12 @@ class ClipGate:
             if x2 <= x1 or y2 <= y1:
                 continue
             crop = image.crop((x1, y1, x2, y2))
+            # Structural gate first: drop solid colored blocks (chart bars,
+            # shapes, table-fill cells) before the CLIP call — CLIP sees the crop
+            # in isolation and can mistake a flat rectangle for a minimalist logo.
+            if self.is_flat_fill(crop):
+                d.meta["dropped"] = "flat_fill"
+                continue
             p_logo = self.is_logo(crop)
             d.meta["clip_logo"] = round(p_logo, 3)
             if p_logo < self.logo_min_prob:
