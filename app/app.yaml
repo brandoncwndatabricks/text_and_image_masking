@@ -6,7 +6,7 @@ env:
   # Prefer a SERVERLESS SQL warehouse (cheap, scales to zero). Set to your
   # workspace's serverless warehouse id; the app service principal needs CAN_USE.
   - name: SQL_WAREHOUSE_ID
-    value: "75fd8278393d07eb"
+    value: "a3ac37025ff93449"
   - name: CLAUDE_ENDPOINT
     value: "databricks-claude-sonnet-5"
   # pii_only = mask all sensitive ENTITIES (clients, brands, people, projects,

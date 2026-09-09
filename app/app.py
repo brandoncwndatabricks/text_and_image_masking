@@ -155,7 +155,18 @@ def claude_pii_indices(contents):
             resp = ws().serving_endpoints.query(
                 name=CLAUDE_ENDPOINT,
                 messages=[ChatMessage(role=ChatMessageRole.USER, content=prompt)])
-            raw = resp.choices[0].message.content.strip()
+            content = resp.choices[0].message.content
+            # Reasoning models (e.g. databricks-claude-sonnet-5) return content as
+            # a list of blocks ([{"type":"reasoning",...},{"type":"text",...}]);
+            # older models return a plain string. Handle both.
+            if isinstance(content, list):
+                parts = []
+                for b in content:
+                    btype = b.get("type") if isinstance(b, dict) else getattr(b, "type", None)
+                    if btype == "text":
+                        parts.append((b.get("text") if isinstance(b, dict) else getattr(b, "text", "")) or "")
+                content = "".join(parts)
+            raw = (content or "").strip()
             if raw.startswith("```"):
                 raw = raw.split("```")[1].lstrip("json").strip()
             return set(int(i) for i in json.loads(raw) if isinstance(i, int))
