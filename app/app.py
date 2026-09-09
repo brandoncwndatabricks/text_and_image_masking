@@ -201,7 +201,9 @@ def text_detect(img: Image.Image):
             box = pad_box(box, 0.08, w0, h0)
             dets.append(Detection(box=box, source="text", label=content[:40], score=1.0,
                                   meta={"content": content, "elem_type": etype}))
-    return dets
+    # split multi-line elements into per-line boxes so masking is line-tight
+    # (ai_parse returns one coarse box per paragraph/block → over-redaction)
+    return text_pii.split_into_lines(dets)
 
 
 def claude_pii_indices(contents):
