@@ -134,6 +134,7 @@ def run_sql(sql, wait_timeout="50s"):
 
 class MaskOptions(BaseModel):
     logos: bool = True; faces: bool = True; text: bool = True; signatures: bool = True
+    sensitive: bool = False   # optional Claude-vision lane: in-image PII + sensitive items
     face_style: str = "blur"; other_style: str = "black"; keep_databricks: bool = True
 
 
@@ -238,6 +239,32 @@ def claude_pii_indices(contents):
     raise text_pii.ClassifierUnavailable(last_err)
 
 
+def sensitive_detect(img):
+    """Optional VLM lane: Claude vision → boxes for sensitive items + in-image PII.
+
+    Uses the app's service-principal auth to POST a multimodal request to the same
+    Claude serving endpoint the PII classifier uses (CLAUDE_ENDPOINT). Raises on
+    failure so the orchestrator surfaces a warn — the torch-free App has no local
+    Grounding DINO fallback (that path lives in the notebook pipeline).
+    """
+    import urllib.request
+    from pipeline import vlm_detect
+
+    b64, sw, sh, W, H = vlm_detect.prepare_image(img)
+    payload = {"messages": [{"role": "user", "content": [
+        {"type": "text", "text": vlm_detect.build_prompt(sw, sh)},
+        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}}]}],
+        "max_tokens": 1500}
+    cfg = ws().config
+    headers = dict(cfg.authenticate()); headers["Content-Type"] = "application/json"
+    url = cfg.host.rstrip("/") + f"/serving-endpoints/{CLAUDE_ENDPOINT}/invocations"
+    req = urllib.request.Request(url, data=json.dumps(payload).encode(), headers=headers)
+    with urllib.request.urlopen(req, timeout=90) as r:
+        body = json.loads(r.read())
+    raw = vlm_detect.extract_text(body["choices"][0]["message"]["content"])
+    return vlm_detect.boxes_from_text(raw, sw, sh, W, H)
+
+
 def _events(req: MaskRequest):
     """Build the staged event generator for one request (load + run_stages).
 
@@ -257,6 +284,7 @@ def _events(req: MaskRequest):
         vision_fn=lambda im, _o: vision_detect(im, req.options) if (req.options.logos or req.options.faces) else [],
         text_fn=lambda im: text_detect(im),
         pii_fn=claude_pii_indices,
+        sensitive_fn=sensitive_detect,
     )
 
 
