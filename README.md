@@ -44,24 +44,11 @@ Three detectors run over each image, each feeding a shared coordinate stage that
 rescales, clips, pads, merges, and de-duplicates boxes before anything is drawn
 or masked:
 
-```text
-                 ┌──────────────── one image ────────────────┐
-                 ▼                  ▼                          ▼
-        Grounding DINO          YuNet                 ai_parse_document
-        (graphical logos)       (faces)               (text / wordmarks / PII)
-                 │                  │                          │
-          CLIP gate:          pad ~15%               regex PII pre-filter
-          drop icons,                                + Claude classifier
-          keep Databricks                            (pii_only | all_text)
-                 └──────────┬───────┴───────────┬──────────────┘
-                            ▼                   ▼
-                   shared box stage      debug overlay (non-destructive)
-                   (rescale·clip·pad·            │
-                    merge·NMS)                    ▼
-                            ▼              apply_masks
-                            └────────────► faces→blur, logos/text→black
-                                                  → *_masked.*
-```
+<p align="center">
+  <img src="docs/img/pipeline_flow.svg" alt="Pipeline flow: one document fans into three detector lanes — logos (Grounding DINO finds boxes → crop each box → a flat-fill pre-filter and a CLIP gate discard non-marks → an allowlist keeps your own brand), faces (YuNet detect → pad), and text/PII (ai_parse_document elements → regex pre-filter → Claude classifier → signature heuristic). All three feed a shared coordinate stage (rescale · clip · pad · merge · NMS) that emits a non-destructive debug overlay and a redacted copy (faces blurred, logos and text blacked)." width="900">
+</p>
+
+<sub>Each lane is a funnel: **Grounding DINO / YuNet / `ai_parse_document`** find *where* content might be, then the per-lane gates decide *what* actually gets masked — the CLIP gate (with a flat-fill pre-filter) for logos, the regex + Claude classifier for text. Everything lands on one shared coordinate frame, which emits a non-destructive **overlay** (for auditing) and the **redacted copy**. See [How logo detection works](#how-logo-detection-works-grounding-dino--crop--clip) below for the crop → CLIP detail.</sub>
 
 - **Logos** — [Grounding DINO](https://huggingface.co/IDEA-Research/grounding-dino-base)
   open-vocabulary detection with pixel-accurate `(H, W)` post-processing, then a

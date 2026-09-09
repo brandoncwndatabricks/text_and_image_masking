@@ -1,0 +1,130 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 730" role="img"
+     aria-label="How the masking pipeline works: one document fans into three detector lanes — logos (Grounding DINO finds boxes, each box is cropped, a flat-fill pre-filter and a CLIP gate discard non-marks, an allowlist keeps your own brand), faces (YuNet detect then pad), and text/PII (ai_parse_document elements, a regex pre-filter, a Claude classifier, and a signature heuristic). All three feed a shared coordinate stage (rescale, clip, pad, merge, NMS) that emits a non-destructive debug overlay and a redacted copy (faces blurred, logos and text blacked).">
+  <title>Text &amp; Image Masking — pipeline flow</title>
+  <defs>
+    <marker id="ah" markerWidth="9" markerHeight="8" refX="7" refY="3" orient="auto" markerUnits="userSpaceOnUse">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#6b7480"/>
+    </marker>
+  </defs>
+
+  <!-- card background: self-contained so it reads on light AND dark README themes -->
+  <rect x="1" y="1" width="1178" height="728" rx="14" fill="#ffffff" stroke="#e3e7ee" stroke-width="1.5"/>
+
+  <!-- input banner -->
+  <rect x="175" y="24" width="960" height="46" rx="10" fill="#eef1f5" stroke="#3d4b5e" stroke-width="1.5"/>
+  <text x="655" y="52" text-anchor="middle" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="14" font-weight="700" fill="#1f2733">One image or document&#160;&#160;·&#160;&#160;PDF · PNG · JPG · slide · scan</text>
+
+  <!-- fan from banner to the three lane tabs -->
+  <line x1="655" y1="70" x2="315" y2="87" stroke="#6b7480" stroke-width="1.4" marker-end="url(#ah)"/>
+  <line x1="655" y1="70" x2="655" y2="87" stroke="#6b7480" stroke-width="1.4" marker-end="url(#ah)"/>
+  <line x1="655" y1="70" x2="995" y2="87" stroke="#6b7480" stroke-width="1.4" marker-end="url(#ah)"/>
+
+  <!-- lane tabs -->
+  <rect x="253" y="88" width="124" height="22" rx="11" fill="#d0342c"/>
+  <text x="315" y="103" text-anchor="middle" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="12" font-weight="700" fill="#ffffff" letter-spacing="0.5">LOGOS</text>
+  <rect x="593" y="88" width="124" height="22" rx="11" fill="#2277b8"/>
+  <text x="655" y="103" text-anchor="middle" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="12" font-weight="700" fill="#ffffff" letter-spacing="0.5">FACES</text>
+  <rect x="933" y="88" width="124" height="22" rx="11" fill="#b07d10"/>
+  <text x="995" y="103" text-anchor="middle" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="12" font-weight="700" fill="#ffffff" letter-spacing="0.5">TEXT / PII</text>
+
+  <!-- tab -> R1 connectors -->
+  <line x1="315" y1="110" x2="315" y2="124" stroke="#6b7480" stroke-width="1.4" marker-end="url(#ah)"/>
+  <line x1="655" y1="110" x2="655" y2="124" stroke="#6b7480" stroke-width="1.4" marker-end="url(#ah)"/>
+  <line x1="995" y1="110" x2="995" y2="124" stroke="#6b7480" stroke-width="1.4" marker-end="url(#ah)"/>
+
+  <!-- ===== LOGO LANE (col1 cx=315) ===== -->
+  <rect x="175" y="124" width="280" height="52" rx="10" fill="#fbecea" stroke="#d0342c" stroke-width="1.5"/>
+  <text x="315" y="145" text-anchor="middle" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="13" font-weight="700" fill="#1f2733">Grounding DINO</text>
+  <text x="315" y="162" text-anchor="middle" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="11" fill="#5b6472">finds candidate boxes&#160;·&#160;WHERE?</text>
+  <line x1="315" y1="176" x2="315" y2="212" stroke="#6b7480" stroke-width="1.4" marker-end="url(#ah)"/>
+  <text x="325" y="198" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10.5" font-style="italic" fill="#6b7480">crop each box</text>
+
+  <rect x="175" y="212" width="280" height="52" rx="10" fill="#fbecea" stroke="#d0342c" stroke-width="1.5"/>
+  <text x="315" y="233" text-anchor="middle" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="13" font-weight="700" fill="#1f2733">Flat-fill pre-filter</text>
+  <text x="315" y="250" text-anchor="middle" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="11" fill="#5b6472">near-1-color &amp; edge-poor?</text>
+  <line x1="315" y1="264" x2="315" y2="300" stroke="#6b7480" stroke-width="1.4" marker-end="url(#ah)"/>
+
+  <rect x="175" y="300" width="280" height="52" rx="10" fill="#fbecea" stroke="#d0342c" stroke-width="1.5"/>
+  <text x="315" y="321" text-anchor="middle" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="13" font-weight="700" fill="#1f2733">CLIP gate</text>
+  <text x="315" y="338" text-anchor="middle" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="11" fill="#5b6472">is this crop a logo?&#160;·&#160;WHAT?</text>
+  <line x1="315" y1="352" x2="315" y2="388" stroke="#6b7480" stroke-width="1.4" marker-end="url(#ah)"/>
+  <text x="325" y="374" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10.5" font-style="italic" fill="#6b7480">brand marks</text>
+
+  <rect x="175" y="388" width="280" height="52" rx="10" fill="#fbecea" stroke="#d0342c" stroke-width="1.5"/>
+  <text x="315" y="409" text-anchor="middle" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="13" font-weight="700" fill="#1f2733">Brand allowlist</text>
+  <text x="315" y="426" text-anchor="middle" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="11" fill="#5b6472">keep own logo (CLIP image-sim)</text>
+
+  <!-- discard bin + dashed drops from the two logo gates -->
+  <rect x="20" y="216" width="140" height="140" rx="10" fill="#f4f6f9" stroke="#b6becb" stroke-width="1.4" stroke-dasharray="5 4"/>
+  <text x="90" y="238" text-anchor="middle" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10.5" font-weight="700" fill="#8a94a2" letter-spacing="0.6">DISCARDED</text>
+  <text x="34" y="262" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="11" fill="#6b7280">· solid shapes</text>
+  <text x="34" y="284" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="11" fill="#6b7280">· chart bars</text>
+  <text x="34" y="306" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="11" fill="#6b7280">· icons · photos</text>
+  <text x="34" y="328" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="11" fill="#6b7280">· charts · plain bg</text>
+  <line x1="175" y1="238" x2="162" y2="238" stroke="#b6becb" stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#ah)"/>
+  <line x1="175" y1="326" x2="162" y2="326" stroke="#b6becb" stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#ah)"/>
+
+  <!-- ===== FACE LANE (col2 cx=655) ===== -->
+  <rect x="515" y="124" width="280" height="52" rx="10" fill="#e9f2fa" stroke="#2277b8" stroke-width="1.5"/>
+  <text x="655" y="145" text-anchor="middle" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="13" font-weight="700" fill="#1f2733">YuNet</text>
+  <text x="655" y="162" text-anchor="middle" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="11" fill="#5b6472">OpenCV DNN face detect</text>
+  <line x1="655" y1="176" x2="655" y2="212" stroke="#6b7480" stroke-width="1.4" marker-end="url(#ah)"/>
+  <text x="665" y="198" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10.5" font-style="italic" fill="#6b7480">pad ~15%</text>
+
+  <rect x="515" y="212" width="280" height="52" rx="10" fill="#e9f2fa" stroke="#2277b8" stroke-width="1.5"/>
+  <text x="655" y="233" text-anchor="middle" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="13" font-weight="700" fill="#1f2733">Pad box</text>
+  <text x="655" y="250" text-anchor="middle" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="11" fill="#5b6472">cover hairline / chin → blur</text>
+
+  <!-- ===== TEXT / PII LANE (col3 cx=995) ===== -->
+  <rect x="855" y="124" width="280" height="52" rx="10" fill="#fbf1da" stroke="#b07d10" stroke-width="1.5"/>
+  <text x="995" y="145" text-anchor="middle" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="13" font-weight="700" fill="#1f2733">ai_parse_document</text>
+  <text x="995" y="162" text-anchor="middle" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="11" fill="#5b6472">text elements + bboxes</text>
+  <line x1="995" y1="176" x2="995" y2="212" stroke="#6b7480" stroke-width="1.4" marker-end="url(#ah)"/>
+  <text x="1005" y="198" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10.5" font-style="italic" fill="#6b7480">per element</text>
+
+  <rect x="855" y="212" width="280" height="52" rx="10" fill="#fbf1da" stroke="#b07d10" stroke-width="1.5"/>
+  <text x="995" y="233" text-anchor="middle" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="13" font-weight="700" fill="#1f2733">Regex PII pre-filter</text>
+  <text x="995" y="250" text-anchor="middle" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="11" fill="#5b6472">email · phone · SSN · EIN · card</text>
+  <line x1="995" y1="264" x2="995" y2="300" stroke="#6b7480" stroke-width="1.4" marker-end="url(#ah)"/>
+  <text x="1005" y="286" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10.5" font-style="italic" fill="#6b7480">the rest</text>
+
+  <rect x="855" y="300" width="280" height="52" rx="10" fill="#fbf1da" stroke="#b07d10" stroke-width="1.5"/>
+  <text x="995" y="321" text-anchor="middle" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="13" font-weight="700" fill="#1f2733">Claude classifier</text>
+  <text x="995" y="338" text-anchor="middle" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="11" fill="#5b6472">which elements are sensitive?</text>
+  <line x1="995" y1="352" x2="995" y2="388" stroke="#6b7480" stroke-width="1.4" marker-end="url(#ah)"/>
+
+  <rect x="855" y="388" width="280" height="52" rx="10" fill="#fbf1da" stroke="#b07d10" stroke-width="1.5"/>
+  <text x="995" y="409" text-anchor="middle" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="13" font-weight="700" fill="#1f2733">Signature heuristic</text>
+  <text x="995" y="426" text-anchor="middle" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="11" fill="#5b6472">figure in sign-off zone → mask</text>
+
+  <!-- convergence into the shared coordinate stage -->
+  <line x1="315" y1="440" x2="315" y2="490" stroke="#6b7480" stroke-width="1.4" marker-end="url(#ah)"/>
+  <line x1="655" y1="264" x2="655" y2="490" stroke="#6b7480" stroke-width="1.4" marker-end="url(#ah)"/>
+  <line x1="995" y1="440" x2="995" y2="490" stroke="#6b7480" stroke-width="1.4" marker-end="url(#ah)"/>
+
+  <rect x="175" y="490" width="960" height="52" rx="10" fill="#eef1f5" stroke="#3d4b5e" stroke-width="1.5"/>
+  <text x="655" y="511" text-anchor="middle" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="13" font-weight="700" fill="#1f2733">Shared coordinate stage</text>
+  <text x="655" y="528" text-anchor="middle" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="11" fill="#5b6472">rescale · clip · pad · merge · de-dupe (NMS) — every box on one aligned frame</text>
+
+  <!-- split to the two outputs -->
+  <line x1="655" y1="542" x2="410" y2="582" stroke="#6b7480" stroke-width="1.4" marker-end="url(#ah)"/>
+  <line x1="655" y1="542" x2="900" y2="582" stroke="#6b7480" stroke-width="1.4" marker-end="url(#ah)"/>
+  <text x="470" y="566" text-anchor="middle" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10.5" font-style="italic" fill="#6b7480">non-destructive</text>
+  <text x="845" y="566" text-anchor="middle" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10.5" font-style="italic" fill="#6b7480">redacts</text>
+
+  <rect x="195" y="582" width="430" height="56" rx="10" fill="#eef1f5" stroke="#4a5a6a" stroke-width="1.5"/>
+  <text x="410" y="605" text-anchor="middle" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="13" font-weight="700" fill="#1f2733">Debug overlay</text>
+  <text x="410" y="623" text-anchor="middle" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="11" fill="#5b6472">colored, labelled boxes — detection vs localization</text>
+
+  <rect x="685" y="582" width="430" height="56" rx="10" fill="#eceef1" stroke="#222831" stroke-width="1.5"/>
+  <text x="900" y="605" text-anchor="middle" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="13" font-weight="700" fill="#1f2733">apply_masks</text>
+  <text x="900" y="623" text-anchor="middle" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="11" fill="#5b6472">faces → blur · logos &amp; text → black box</text>
+
+  <!-- final artifacts -->
+  <line x1="410" y1="638" x2="410" y2="668" stroke="#6b7480" stroke-width="1.4" marker-end="url(#ah)"/>
+  <line x1="900" y1="638" x2="900" y2="668" stroke="#6b7480" stroke-width="1.4" marker-end="url(#ah)"/>
+  <rect x="250" y="668" width="320" height="38" rx="8" fill="#ffffff" stroke="#8892a0" stroke-width="1.3"/>
+  <text x="410" y="692" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12" fill="#1f2733">*_overlay.jpg</text>
+  <rect x="740" y="668" width="320" height="38" rx="8" fill="#ffffff" stroke="#222831" stroke-width="1.3"/>
+  <text x="900" y="692" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12" fill="#1f2733">*_masked.jpg&#160;&#160;— redacted copy</text>
+</svg>
