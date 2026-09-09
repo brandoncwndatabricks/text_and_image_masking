@@ -35,13 +35,17 @@ from PIL import Image
 from .boxes import Detection, area_frac, clip_to_image, pad_box
 
 # ── Deterministic PII patterns (always redacted, no model needed) ───────────────
+# Patterns are intentionally structure-specific: a loose "any digits" phone or a
+# bare 5-digit ZIP fires on years, amounts, and IDs, which (combined with masking)
+# is a big source of over-redaction. Phone requires a real 3-3-4 shape; ZIP
+# requires a state prefix or the ZIP+4 form (Claude still catches looser addresses).
 PII_PATTERNS = {
     "email": re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}"),
     "url": re.compile(r"\b(?:https?://|www\.)[^\s]+", re.I),
-    "phone": re.compile(r"(?:(?:\+?\d{1,3}[\s.-]?)?(?:\(?\d{2,4}\)?[\s.-]?){2,4}\d{2,4})"),
+    "phone": re.compile(r"(?:\+?\d{1,3}[\s.-]?)?(?:\(\d{3}\)|\d{3})[\s.-]\d{3}[\s.-]\d{4}\b"),
     "ssn": re.compile(r"\b\d{3}-\d{2}-\d{4}\b"),
     "card": re.compile(r"\b(?:\d[ -]?){13,16}\b"),
-    "zip": re.compile(r"\b\d{5}(?:-\d{4})?\b"),
+    "zip": re.compile(r"\b[A-Z]{2}\s+\d{5}(?:-\d{4})?\b|\b\d{5}-\d{4}\b"),
 }
 
 # ai_parse_document element types that represent non-text graphics.
@@ -141,7 +145,45 @@ def parse_document_text_elements(
             box = pad_box(box, pad_frac, img_w, img_h)
             dets.append(Detection(box=box, source="text", label=content[:40], score=1.0,
                                   meta={"content": content, "elem_type": etype}))
-    return dets
+    return split_into_lines(dets)
+
+
+def split_into_lines(dets: List[Detection]) -> List[Detection]:
+    """Split a multi-line text element into one detection PER LINE.
+
+    ``ai_parse_document`` returns one coarse box per element — a whole paragraph
+    or contact block is a single box — so masking the element blacks out generic
+    text around one PII token (the main source of over-redaction). We partition
+    a multi-line element's box into equal vertical bands (one per content line)
+    so the downstream regex/Claude filter can mask only the sensitive lines.
+
+    Tables (HTML content) and figures are left whole — their layout isn't a
+    simple vertical line stack. Bands are padded slightly so a line is never
+    left half-masked by an imperfect split.
+    """
+    out: List[Detection] = []
+    for d in dets:
+        content = d.meta.get("content", d.label) or ""
+        etype = d.meta.get("elem_type", "")
+        lines = content.split("\n")
+        non_empty = [ln for ln in lines if ln.strip()]
+        if (d.source != "text" or etype in FIGURE_TYPES
+                or content.strip().startswith("<table") or len(non_empty) < 2):
+            out.append(d)
+            continue
+        x1, y1, x2, y2 = d.box
+        n = len(lines)
+        h = (y2 - y1) / n
+        vpad = 0.12 * h
+        for i, ln in enumerate(lines):
+            if not ln.strip():
+                continue
+            sy1 = max(y1, y1 + i * h - vpad)
+            sy2 = min(y2, y1 + (i + 1) * h + vpad)
+            out.append(Detection(box=[x1, sy1, x2, sy2], source="text",
+                                  label=ln.strip()[:40], score=d.score,
+                                  meta={"content": ln.strip(), "elem_type": etype, "split": True}))
+    return out
 
 
 # ── PII sensitivity filter ──────────────────────────────────────────────────────

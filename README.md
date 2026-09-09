@@ -74,7 +74,10 @@ clips, pads, merges, and de-duplicates boxes before anything is drawn or masked:
 - **Text / PII** — Databricks **`ai_parse_document`** localizes text elements
   (including wordmark logos like Gartner / Forrester that the graphical detector
   ignores), then a **regex PII pre-filter + Claude classifier** decides what to
-  mask (`pii_only` vs `all_text`) so body copy isn't blindly blacked out.
+  mask (`pii_only` vs `all_text`) so body copy isn't blindly blacked out. Because
+  `ai_parse_document` returns one coarse box per block, multi-line elements are
+  **split into per-line boxes** so only the sensitive lines are masked, not the
+  whole paragraph (tables are still masked whole — they're dense PII by nature).
 - **Sensitive items & in-image PII** *(optional, `do_sensitive=True`)* — a
   **Claude vision** pass returns boxes for sensitive content the other lanes
   miss: **text baked into a photo** (signage, badges, on-screen data) and
