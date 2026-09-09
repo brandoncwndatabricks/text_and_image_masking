@@ -326,7 +326,16 @@ def _claude_sensitive_indices(text_dets, endpoint, profile, prompt, max_retries=
                 timeout=30,
             )
             if resp.status_code == 200:
-                raw = resp.json()["choices"][0]["message"]["content"].strip()
+                content = resp.json()["choices"][0]["message"]["content"]
+                # Reasoning models (e.g. claude-sonnet-5) return `content` as a
+                # list of blocks [{"type":"reasoning",...},{"type":"text",...}];
+                # older models return a plain string. Handle both.
+                if isinstance(content, list):
+                    content = "".join(
+                        b.get("text", "") for b in content
+                        if isinstance(b, dict) and b.get("type") == "text"
+                    )
+                raw = content.strip()
                 if raw.startswith("```"):
                     raw = raw.split("```")[1].lstrip("json").strip()
                 return set(int(i) for i in json.loads(raw) if isinstance(i, int))

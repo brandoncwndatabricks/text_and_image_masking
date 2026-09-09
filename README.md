@@ -80,6 +80,62 @@ Masks: **faces → blur, logos & text → black box.** Every run also emits a co
 labelled **debug overlay** so you can tell detection errors from localization
 errors at a glance.
 
+### How logo detection works: Grounding DINO → crop → CLIP
+
+Logo detection is a **two-model funnel**, and it helps to know that the two
+models look at *different things*:
+
+1. **Grounding DINO looks at the whole image and answers "where?"** It's an
+   open-vocabulary detector: given a prompt like `"logo . brand logo . company
+   emblem"`, it returns a list of **bounding boxes** — rectangles that *might* be
+   logos (e.g. "something logo-like at pixels `[105, 66, 296, 129]`"). It is
+   deliberately **recall-oriented** (a low score threshold), so it over-fires: it
+   will happily box chart bars, colored shapes, and icons alongside real marks.
+   Catching those false positives is the next stage's job.
+
+2. **CLIP looks at one box at a time and answers "is this really a logo?"** CLIP
+   is a strong *classifier* but has **no sense of location** — you cannot ask it
+   to "point to the logo." So for each box Grounding DINO proposed, the pipeline
+   **cuts that rectangle out of the image into a small standalone picture — the
+   "crop" — and hands only that crop to CLIP.** CLIP never sees the whole page;
+   it sees a sequence of little rectangles and, for each, scores it against
+   captions like *"a company brand logo"* vs *"a decorative icon"*, *"a chart or
+   graph element"*, *"a photograph"*. Crops that don't read as a logo are dropped.
+   You can see this in `pipeline/verify.py`: `crop = image.crop(box)` then
+   `is_logo(crop)`.
+
+   ```text
+   whole image ──▶ Grounding DINO ──▶ boxes ──▶ for each box: image.crop(box)
+                     (where?)                              │
+                                                           ▼
+                                            CLIP judges each crop in isolation
+                                              (is THIS little rectangle a logo?)
+                                                           │
+                                              keep brand marks, drop the rest
+   ```
+
+3. **A structural pre-filter runs before CLIP.** Because CLIP judges each crop
+   *in isolation*, a crop that is just a flat colored rectangle (a chart bar, a
+   solid shape, a colored table-header fill) can score as a minimalist "logo" —
+   there's no surrounding context to tell CLIP it's part of a chart. So before
+   the CLIP call, `ClipGate.is_flat_fill()` rejects any crop that is **both**
+   near-single-color **and** edge-poor (few internal edges). A real logo — even a
+   wordmark on a plain letterhead — is always edge-rich from its text strokes, so
+   requiring *both* conditions means this never drops a genuine mark; it only
+   removes solid fills.
+
+4. **The allowlist is also CLIP, but image-to-image.** To *keep* a chosen brand
+   (e.g. your own logo) while masking third-party marks, each surviving logo crop
+   is compared by **CLIP image-embedding cosine similarity** to reference crops in
+   `refs/`. Above `databricks_min_sim` (0.80) the mark is kept (`mask=False`).
+   Reference-image similarity is used instead of a text prompt because zero-shot
+   "is this the X logo?" proved unreliable (it mis-tagged a serif title and a car
+   emblem).
+
+The division of labor, in one line: **Grounding DINO decides *where*, the
+structural pre-filter and CLIP decide *whether it's actually a brand mark*, and
+the allowlist decides *whether to keep or mask* it.**
+
 ## Layout
 
 ```text
