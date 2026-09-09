@@ -22,6 +22,7 @@ MASK_STYLE: Dict[str, str] = {
     "logo": "black",
     "text": "black",
     "signature": "black",
+    "sensitive": "black",   # IDs, cards, plates, barcodes, screens, scene text…
 }
 
 # Blur radius as a fraction of the box's smaller side (so big faces blur as

@@ -23,6 +23,7 @@ SOURCE_COLOR: Dict[str, tuple] = {
     "face": (0, 200, 255),
     "text": (255, 210, 0),
     "signature": (200, 80, 255),
+    "sensitive": (255, 140, 0),   # VLM / open-vocab sensitive items (cards, IDs, plates, screens…)
 }
 KEPT_COLOR = (60, 220, 60)  # allowlisted / not masked
 

@@ -107,6 +107,38 @@ class LogoDetector:
         return nms(dets, iou_threshold)
 
 
+# ── Generic sensitive objects: Grounding DINO open-vocab ─────────────────────────
+# Open-vocabulary fallback for "obviously sensitive" items beyond faces/logos.
+# Same GDINO weights as LogoDetector, different prompt; NOT gated by the CLIP logo
+# verifier (these aren't brand marks). Noisier than face detection — tune the
+# prompt/threshold per deployment. Used as the fallback when the VLM backend
+# (vlm_detect) is unavailable.
+SENSITIVE_OBJECT_PROMPT = (
+    "identity card . passport . driver license . license plate . credit card . "
+    "bank card . barcode . qr code . name badge . computer screen . "
+    "phone screen . cheque"
+)
+
+
+class SensitiveObjectDetector(LogoDetector):
+    """Detect obviously-sensitive objects via open-vocabulary Grounding DINO.
+
+    Reuses the LogoDetector GDINO model; returns Detections with
+    ``source='sensitive'`` so they mask (black) and skip the logo CLIP gate.
+    A higher ``max_area_frac`` default (an ID scan can fill most of the frame).
+    """
+
+    def __init__(self, *args, max_area_frac: float = 0.9, **kwargs):
+        super().__init__(*args, max_area_frac=max_area_frac, **kwargs)
+
+    def detect(self, image: Image.Image, prompt: str = SENSITIVE_OBJECT_PROMPT,
+               iou_threshold: float = 0.4) -> List[Detection]:
+        dets = super().detect(image, prompt=prompt, iou_threshold=iou_threshold)
+        for d in dets:
+            d.source = "sensitive"
+        return dets
+
+
 # ── Faces: YuNet (OpenCV DNN, no extra deps) ────────────────────────────────────
 
 _DEFAULT_YUNET = os.path.join(

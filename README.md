@@ -62,6 +62,16 @@ or masked:
   (including wordmark logos like Gartner / Forrester that the graphical detector
   ignores), then a **regex PII pre-filter + Claude classifier** decides what to
   mask (`pii_only` vs `all_text`) so body copy isn't blindly blacked out.
+- **Sensitive items & in-image PII** *(optional, `do_sensitive=True`)* — a
+  **Claude vision** pass returns boxes for sensitive content the other lanes
+  miss: **text baked into a photo** (signage, badges, on-screen data) and
+  **non-text items** (ID/tax documents, payment cards, license plates,
+  barcodes/QR, signatures). It's *selective* — the model reads and judges — and
+  field-accurate (validated IoU ≈ 0.95–1.0 on known boxes; it localized a W-9's
+  SSN/EIN, invoice bank details, and office screens). If the vision endpoint is
+  unavailable it **falls back** to open-vocabulary **Grounding DINO** object
+  detection (`sensitive_backend="objects"`) — local and fast, but noisier and
+  not selective (it can't read the content).
 
 Masks: **faces → blur, logos & text → black box.** Every run also emits a colored,
 labelled **debug overlay** so you can tell detection errors from localization
@@ -209,15 +219,17 @@ offline. The notebook has equivalent cells (`evaluate_and_log` / `sweep_and_log`
   the logo + face phases are fully local. Run with `do_text=True` for full coverage
   (wordmark logos and PII depend on it). Validated live on a Databricks serverless
   session with `databricks-claude-sonnet-5` as the entity/PII classifier.
-- **Text/PII detection is document-oriented — pure photos get only faces + logos.**
-  `ai_parse_document` targets *document* layout (scans, forms, slides, PDFs,
-  business cards). In testing it extracted **no** text from photographic scenes,
-  so text/PII *baked into a photo* (signage, badges, on-screen data) and other
-  non-text visual PII (**license plates, ID-card fields, barcodes/QR, stamps &
-  seals, handwriting**) are **not** detected today — on a pure photograph only
-  faces and logos are masked. This is the biggest coverage gap; see
-  [`NEXT_STEPS.md`](./NEXT_STEPS.md) (“The gap” → document-layout + scene OCR) for
-  the v6 plan.
+- **The base text lane is document-oriented; in-image PII needs the optional
+  sensitive-items lane.** `ai_parse_document` targets *document* layout (scans,
+  forms, slides, PDFs, business cards) and extracts **no** text from photographic
+  scenes — so with only faces + logos + text enabled, a pure photograph gets just
+  faces and logos masked. Enable **`do_sensitive=True`** (Claude-vision, above) to
+  also catch text baked into photos and non-text items (IDs, cards, plates,
+  barcodes/QR, screens, signatures). Caveats for that lane: it needs a multimodal
+  Claude serving endpoint, adds a vision call's latency, and — while box
+  localization tested well — VLM coordinates can drift on cluttered photos or very
+  small text; the open-vocab fallback is noisier still. See
+  [`NEXT_STEPS.md`](./NEXT_STEPS.md) for the broader v6 plan.
 - **PII classifier selectivity varies doc-to-doc** — in `text_mode="pii_only"`
   the Claude classifier is a judgment call, so exactly which lines it masks (names,
   fees, addresses) is not perfectly consistent across documents. Use
