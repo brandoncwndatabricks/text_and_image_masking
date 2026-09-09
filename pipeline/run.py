@@ -32,6 +32,8 @@ class PipelineConfig:
     do_logos: bool = True
     do_faces: bool = True
     do_text: bool = False          # needs Spark/ai_parse_document
+    do_sensitive: bool = False     # generic sensitive items + text baked into images
+    sensitive_backend: str = "vlm" # 'vlm' (Claude vision, selective) | 'objects' (GDINO open-vocab)
     use_clip_gate: bool = True
     text_mode: str = "pii_only"    # 'pii_only' | 'all_text'
     logo_box_threshold: float = 0.25
@@ -47,7 +49,7 @@ class MaskingPipeline:
         self.spark = spark
         self.claude_endpoint = claude_endpoint
         self.profile = profile          # used to mint the token for the Claude REST call
-        self._logo = self._face = self._text = self._clip = None
+        self._logo = self._face = self._text = self._clip = self._sensitive_obj = None
 
     # lazy loaders so we only pay for the detectors we use
     @property
@@ -77,6 +79,17 @@ class MaskingPipeline:
             self._clip = ClipGate()
         return self._clip
 
+    @property
+    def sensitive_obj(self):
+        # open-vocab Grounding DINO fallback for the sensitive-items phase
+        if self._sensitive_obj is None:
+            from .detectors import SensitiveObjectDetector
+            self._sensitive_obj = SensitiveObjectDetector(
+                box_threshold=self.cfg.logo_box_threshold,
+                text_threshold=self.cfg.logo_text_threshold,
+            )
+        return self._sensitive_obj
+
     def detect(self, image: Image.Image, image_path: str = None) -> List[Detection]:
         image = image.convert("RGB")
         dets: List[Detection] = []
@@ -103,6 +116,21 @@ class MaskingPipeline:
                 img_h=image.size[1],
             )
             dets += text_dets
+
+        if self.cfg.do_sensitive:
+            # Primary: Claude vision (selective — covers text baked into images +
+            # generic sensitive objects). Fallback: open-vocab Grounding DINO.
+            sens = None
+            if self.cfg.sensitive_backend == "vlm" and self.claude_endpoint:
+                try:
+                    from . import vlm_detect
+                    sens = vlm_detect.detect_sensitive_vlm(
+                        image, self.claude_endpoint, self.profile)
+                except vlm_detect.VLMUnavailable:
+                    sens = None  # fall through to the open-vocab detector
+            if sens is None:
+                sens = self.sensitive_obj.detect(image)
+            dets += sens
 
         return merge_sources(dets, self.cfg.merge_iou)
 
