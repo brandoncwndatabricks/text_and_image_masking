@@ -70,6 +70,68 @@ def ws():
     return _ws
 
 
+# ── SQL warehouse resolution (configured id, with runtime fallback) ────────────
+# The configured SQL_WAREHOUSE_ID can go stale — a warehouse recreated in the
+# workspace gets a new id, which silently breaks ai_parse_document. So we resolve
+# lazily: use the configured id when it still exists, otherwise scan the workspace
+# and pick a usable warehouse (prefer one already RUNNING, then serverless — cheap
+# and auto-starts). A warehouse that fails at query time is blacklisted and we
+# re-pick. The resolved id is cached across requests.
+_WH = {"id": None, "bad": set()}
+
+def _pick_warehouse(exclude=()):
+    """Best available warehouse id: prefer RUNNING, then serverless, then any."""
+    try:
+        cands = [w for w in ws().warehouses.list() if w.id and w.id not in exclude]
+    except Exception:
+        return None
+    if not cands:
+        return None
+    def rank(w):
+        running = str(getattr(w, "state", "")).upper().endswith("RUNNING")
+        serverless = bool(getattr(w, "enable_serverless_compute", False))
+        return (running, serverless)
+    cands.sort(key=rank, reverse=True)
+    return cands[0].id
+
+def resolve_warehouse_id(force=False):
+    """Return a usable SQL warehouse id, with caching + runtime fallback."""
+    if not force and _WH["id"]:
+        return _WH["id"]
+    wid = SQL_WAREHOUSE_ID if (SQL_WAREHOUSE_ID and SQL_WAREHOUSE_ID not in _WH["bad"]) else ""
+    if wid:
+        try:
+            ws().warehouses.get(wid)          # configured id still exists?
+        except Exception:
+            wid = ""                           # gone → fall back to discovery
+    if not wid:
+        wid = _pick_warehouse(exclude=_WH["bad"]) or ""
+    _WH["id"] = wid
+    return wid
+
+def run_sql(sql, wait_timeout="50s"):
+    """Execute SQL via the Statement Execution API, resolving the warehouse and
+    retrying once on a freshly-picked warehouse if the chosen one is unusable
+    (missing, stopped-and-unreachable, or no CAN_USE for the app principal)."""
+    last = None
+    for attempt in range(2):
+        wid = resolve_warehouse_id(force=attempt > 0)
+        if not wid:
+            raise RuntimeError("no usable SQL warehouse available in this workspace")
+        try:
+            return ws().statement_execution.execute_statement(
+                warehouse_id=wid, statement=sql, wait_timeout=wait_timeout)
+        except Exception as e:                 # noqa: BLE001
+            msg = str(e).lower()
+            # Only fall back for warehouse/permission problems — a genuine SQL
+            # error must not blacklist an otherwise-good warehouse.
+            if not any(k in msg for k in ("warehouse", "permission", "does not exist", "not found")):
+                raise
+            last = e
+            _WH["bad"].add(wid); _WH["id"] = None
+    raise last
+
+
 class MaskOptions(BaseModel):
     logos: bool = True; faces: bool = True; text: bool = True; signatures: bool = True
     face_style: str = "blur"; other_style: str = "black"; keep_databricks: bool = True
@@ -115,8 +177,7 @@ def text_detect(img: Image.Image):
     buf = io.BytesIO(); send.save(buf, "JPEG", quality=85)
     b64 = base64.b64encode(buf.getvalue()).decode()
     sql = f"SELECT CAST(ai_parse_document(unbase64('{b64}')) AS STRING) AS parsed"
-    r = ws().statement_execution.execute_statement(
-        warehouse_id=SQL_WAREHOUSE_ID, statement=sql, wait_timeout="50s")
+    r = run_sql(sql)
     if not (r.result and r.result.data_array):
         return []
     parsed = json.loads(r.result.data_array[0][0])
