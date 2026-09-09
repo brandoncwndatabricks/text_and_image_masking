@@ -10,6 +10,13 @@ letters, financial statements, slide decks, business cards, scanned PDFs) where 
 single page often mixes all three: a client logo in the header, headshots in a
 team slide, and names / emails / account numbers in the body.
 
+An optional fourth lane (**`do_sensitive`**) adds a **Claude-vision** pass for
+sensitive content *baked into an image* that the document-text lane can't read —
+ID / tax documents, payment cards, license plates, barcodes / QR, on-screen data,
+signatures, and text inside photographs — with an open-vocabulary Grounding DINO
+fallback. The logo, face, and text lanes are unchanged and still use their own
+models; the sensitive lane is additive and off by default.
+
 ## What it looks like
 
 Each image is run through the pipeline and produces a redacted copy. Below,
@@ -40,9 +47,9 @@ the layout, names, and roles are preserved.
 
 ## How it works
 
-Three detectors run over each image, each feeding a shared coordinate stage that
-rescales, clips, pads, merges, and de-duplicates boxes before anything is drawn
-or masked:
+Three detectors run over each image (plus an optional fourth — the Claude-vision
+sensitive-items lane), each feeding a shared coordinate stage that rescales,
+clips, pads, merges, and de-duplicates boxes before anything is drawn or masked:
 
 <p align="center">
   <img src="docs/img/pipeline_flow.svg" alt="Pipeline flow: one document fans into three detector lanes — logos (Grounding DINO finds boxes → crop each box → a flat-fill pre-filter and a CLIP gate discard non-marks → an allowlist keeps your own brand), faces (YuNet detect → pad), and text/PII (ai_parse_document elements → regex pre-filter → Claude classifier → signature heuristic). All three feed a shared coordinate stage (rescale · clip · pad · merge · NMS) that emits a non-destructive debug overlay and a redacted copy (faces blurred, logos and text blacked)." width="900">
@@ -140,9 +147,10 @@ text_and_image_masking/
 ├── masking_pipeline.ipynb   # entry point — run, visualise, evaluate
 ├── pipeline/
 │   ├── boxes.py             # Detection type + ALL coordinate handling
-│   ├── detectors.py         # LogoDetector (GDINO), FaceDetector (YuNet), TextDetector (DBNet)
-│   ├── verify.py            # CLIP gate: icon filter (text-prompt) + brand allowlist (image-sim)
+│   ├── detectors.py         # LogoDetector (GDINO), FaceDetector (YuNet), TextDetector (DBNet), SensitiveObjectDetector (GDINO open-vocab)
+│   ├── verify.py            # CLIP gate: flat-fill pre-filter + icon filter (text-prompt) + brand allowlist (image-sim)
 │   ├── text_pii.py          # ai_parse_document text + regex/Claude PII filter
+│   ├── vlm_detect.py        # Claude-vision sensitive-items lane (in-image PII + objects), open-vocab fallback
 │   ├── masking.py           # apply_masks: black box / Gaussian blur per source
 │   ├── overlay.py           # debug overlay renderer
 │   ├── tracking.py          # MLflow instrumentation (dry-run if no MLflow)
@@ -183,6 +191,12 @@ masked.save("out.jpg")      # the redacted image
 - **Text phase** needs a Databricks serverless session for `ai_parse_document`.
   Set `do_text=True` and pass a `spark` session + `claude_endpoint` (see the
   notebook). It catches wordmark logos and PII the graphical detector leaves alone.
+- **Sensitive-items phase** *(optional)* — set `do_sensitive=True` and pass a
+  `claude_endpoint` (a **multimodal** Claude endpoint). It masks in-image PII and
+  sensitive objects the other lanes miss. It runs the Claude-vision backend by
+  default; pass `sensitive_backend="objects"` to force the local Grounding DINO
+  open-vocabulary fallback instead (no endpoint needed, but noisier / not
+  selective). Independent of the logo/face/text toggles.
 
 ### Tuning the brand allowlist
 

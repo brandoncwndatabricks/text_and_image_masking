@@ -1,7 +1,7 @@
 # Redaction Studio — app
 
 A web UI for the v5 masking pipeline: upload a document, pick **what** to mask
-(logos / faces / text-PII / signatures), and see the **before / after**
+(logos / faces / text-PII / signatures / sensitive items), and see the **before / after**
 side-by-side with an optional debug overlay.
 
 **Target architecture:** React (Vite) frontend + FastAPI backend on **Databricks
@@ -67,9 +67,10 @@ feeding the visual detectors.
 POST /api/mask
 { "image": "data:image/png;base64,…",
   "options": { "logos": true, "faces": true, "text": true, "signatures": true,
+               "sensitive": false,
                "face_style": "blur", "other_style": "black", "keep_databricks": true } }
 → { "original": "data:…", "masked": "data:…", "overlay": "data:…",
-    "detections": [ { "source": "logo|face|text|signature", "label": "...",
+    "detections": [ { "source": "logo|face|text|signature|sensitive", "label": "...",
                       "score": 0.0, "box": [x1,y1,x2,y2], "mask": true } ],
     "timing_s": 0.0 }
 ```
