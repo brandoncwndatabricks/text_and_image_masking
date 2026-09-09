@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 730" role="img"
-     aria-label="How the masking pipeline works: one document fans into three detector lanes — logos (Grounding DINO finds boxes, each box is cropped, a flat-fill pre-filter and a CLIP gate discard non-marks, an allowlist keeps your own brand), faces (YuNet detect then pad), and text/PII (ai_parse_document elements, a regex pre-filter, a Claude classifier, and a signature heuristic). All three feed a shared coordinate stage (rescale, clip, pad, merge, NMS) that emits a non-destructive debug overlay and a redacted copy (faces blurred, logos and text blacked).">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 800" role="img"
+     aria-label="How the masking pipeline works: one document fans into three detector lanes — logos (Grounding DINO finds boxes, each box is cropped, a flat-fill pre-filter and a CLIP gate discard non-marks, an allowlist keeps your own brand), faces (YuNet detect then pad), and text/PII (ai_parse_document extracts document-layout text elements, a regex pre-filter, a Claude classifier, and a signature heuristic). All three feed a shared coordinate stage (rescale, clip, pad, merge, NMS) that emits a non-destructive debug overlay and a redacted copy (faces blurred, logos and text blacked). Not yet detected: text baked into photographs (scene text), license plates, ID-card fields, barcodes and QR codes, on-screen data, stamps and seals, and handwriting — on a pure photo only faces and logos are masked.">
   <title>Text &amp; Image Masking — pipeline flow</title>
   <defs>
     <marker id="ah" markerWidth="9" markerHeight="8" refX="7" refY="3" orient="auto" markerUnits="userSpaceOnUse">
@@ -8,7 +8,7 @@
   </defs>
 
   <!-- card background: self-contained so it reads on light AND dark README themes -->
-  <rect x="1" y="1" width="1178" height="728" rx="14" fill="#ffffff" stroke="#e3e7ee" stroke-width="1.5"/>
+  <rect x="1" y="1" width="1178" height="798" rx="14" fill="#ffffff" stroke="#e3e7ee" stroke-width="1.5"/>
 
   <!-- input banner -->
   <rect x="175" y="24" width="960" height="46" rx="10" fill="#eef1f5" stroke="#3d4b5e" stroke-width="1.5"/>
@@ -127,4 +127,9 @@
   <text x="410" y="692" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12" fill="#1f2733">*_overlay.jpg</text>
   <rect x="740" y="668" width="320" height="38" rx="8" fill="#ffffff" stroke="#222831" stroke-width="1.3"/>
   <text x="900" y="692" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12" fill="#1f2733">*_masked.jpg&#160;&#160;— redacted copy</text>
+
+  <!-- honest scope boundary: PII embedded in a photo that no lane catches today -->
+  <rect x="20" y="726" width="1140" height="60" rx="10" fill="#fdf6e3" stroke="#d99a00" stroke-width="1.5" stroke-dasharray="6 4"/>
+  <text x="40" y="750" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="12" font-weight="700" fill="#a06a00">&#9888;&#160;&#160;Not yet detected — on a pure photo only faces + logos are masked (the text lane needs document-like layout for ai_parse):</text>
+  <text x="40" y="770" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="12" fill="#7a5a10">text baked into photos (scene text) · license plates · ID-card fields · barcodes / QR · on-screen data · stamps / seals · handwriting</text>
 </svg>

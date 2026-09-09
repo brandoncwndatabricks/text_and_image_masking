@@ -48,7 +48,7 @@ or masked:
   <img src="docs/img/pipeline_flow.svg" alt="Pipeline flow: one document fans into three detector lanes — logos (Grounding DINO finds boxes → crop each box → a flat-fill pre-filter and a CLIP gate discard non-marks → an allowlist keeps your own brand), faces (YuNet detect → pad), and text/PII (ai_parse_document elements → regex pre-filter → Claude classifier → signature heuristic). All three feed a shared coordinate stage (rescale · clip · pad · merge · NMS) that emits a non-destructive debug overlay and a redacted copy (faces blurred, logos and text blacked)." width="900">
 </p>
 
-<sub>Each lane is a funnel: **Grounding DINO / YuNet / `ai_parse_document`** find *where* content might be, then the per-lane gates decide *what* actually gets masked — the CLIP gate (with a flat-fill pre-filter) for logos, the regex + Claude classifier for text. Everything lands on one shared coordinate frame, which emits a non-destructive **overlay** (for auditing) and the **redacted copy**. See [How logo detection works](#how-logo-detection-works-grounding-dino--crop--clip) below for the crop → CLIP detail.</sub>
+<sub>Each lane is a funnel: **Grounding DINO / YuNet / `ai_parse_document`** find *where* content might be, then the per-lane gates decide *what* actually gets masked — the CLIP gate (with a flat-fill pre-filter) for logos, the regex + Claude classifier for text. Everything lands on one shared coordinate frame, which emits a non-destructive **overlay** (for auditing) and the **redacted copy**. See [How logo detection works](#how-logo-detection-works-grounding-dino--crop--clip) below for the crop → CLIP detail. **Scope note (amber band):** the text lane relies on `ai_parse_document`, which reads *document-like* layout — so on a pure photograph only faces and logos are masked; text baked into a photo (scene text, badges, on-screen data) and other visual PII (license plates, ID-card fields, barcodes/QR, stamps, handwriting) are **not** detected yet — see [Known limitations](#known-limitations).</sub>
 
 - **Logos** — [Grounding DINO](https://huggingface.co/IDEA-Research/grounding-dino-base)
   open-vocabulary detection with pixel-accurate `(H, W)` post-processing, then a
@@ -209,6 +209,15 @@ offline. The notebook has equivalent cells (`evaluate_and_log` / `sweep_and_log`
   the logo + face phases are fully local. Run with `do_text=True` for full coverage
   (wordmark logos and PII depend on it). Validated live on a Databricks serverless
   session with `databricks-claude-sonnet-5` as the entity/PII classifier.
+- **Text/PII detection is document-oriented — pure photos get only faces + logos.**
+  `ai_parse_document` targets *document* layout (scans, forms, slides, PDFs,
+  business cards). In testing it extracted **no** text from photographic scenes,
+  so text/PII *baked into a photo* (signage, badges, on-screen data) and other
+  non-text visual PII (**license plates, ID-card fields, barcodes/QR, stamps &
+  seals, handwriting**) are **not** detected today — on a pure photograph only
+  faces and logos are masked. This is the biggest coverage gap; see
+  [`NEXT_STEPS.md`](./NEXT_STEPS.md) (“The gap” → document-layout + scene OCR) for
+  the v6 plan.
 - **PII classifier selectivity varies doc-to-doc** — in `text_mode="pii_only"`
   the Claude classifier is a judgment call, so exactly which lines it masks (names,
   fees, addresses) is not perfectly consistent across documents. Use
