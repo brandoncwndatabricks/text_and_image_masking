@@ -57,6 +57,12 @@ clips, pads, merges, and de-duplicates boxes before anything is drawn or masked:
 
 <sub>Every lane is the same two-step funnel: **① FIND** where content might be (Grounding DINO / YuNet / `ai_parse_document` / Claude vision), then **② DECIDE** what actually gets masked (the flat-fill + CLIP gate for logos, always-blur for faces, the regex + Claude classifier for text). **③ MERGE** lands every box on one aligned coordinate frame; **④ OUTPUT** is a non-destructive labelled **overlay** and the **redacted copy**. Lanes run in parallel and toggle independently — logos + faces are on by default, text/PII needs Databricks, and the **sensitive-items lane (dashed = optional, off by default)** adds a Claude-vision pass for in-image PII the document-text lane can't read. See [How logo detection works](#how-logo-detection-works-grounding-dino--crop--clip) for the crop → CLIP detail and [Known limitations](#known-limitations) for the document-vs-photo scope.</sub>
 
+**A real document through those stages.** The detectors find regions (colored boxes; **green = detected but kept**), then only the sensitive *snippets* are redacted: the logo is blacked, the headshot is Gaussian-blurred, and the **direct-line/assistant contact line** and the **CEO name/email caption** are masked — while the title and the body narrative are left readable.
+
+<p align="center">
+  <img src="docs/img/pipeline_walkthrough.png" alt="Three panels of the same advisory document: (1) original; (2) detector boxes — logo, face, and text/PII, with the kept title and body paragraphs boxed in green and only the contact line and caption boxed as text/PII; (3) the redacted copy with the logo blacked, headshot blurred, and just the contact line and CEO caption masked while the title and narrative remain readable." width="960">
+</p>
+
 - **Logos** — [Grounding DINO](https://huggingface.co/IDEA-Research/grounding-dino-base)
   open-vocabulary detection with pixel-accurate `(H, W)` post-processing, then a
   **CLIP verification gate** that drops decorative icons / photos / charts so the
