@@ -6,8 +6,10 @@ localization bug is fixed at the source here, not patched downstream.
 
 Detectors:
   - LogoDetector   : Grounding DINO (open-vocab) + optional CLIP verification.
-  - FaceDetector   : RetinaFace (added in Phase 2).
-  - TextDetector   : PaddleOCR PP-OCRv5 (added in Phase 4).
+  - FaceDetector   : OpenCV YuNet (DNN backend; RetinaFace was firewalled).
+  - TextDetector   : OpenCV DBNet (local fallback only; the primary text lane
+                     is ai_parse_document in text_pii.py, used on Databricks).
+  - SensitiveObjectDetector : Grounding DINO open-vocab (sensitive-items fallback).
 
 Models are loaded lazily so importing this module is cheap and a pipeline can
 use only the detectors it needs.
