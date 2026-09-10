@@ -374,7 +374,7 @@ def _claude_sensitive_indices(text_dets, endpoint, profile, prompt, max_retries=
             resp = requests.post(
                 endpoint,
                 headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
-                json={"messages": [{"role": "user", "content": full_prompt}], "temperature": 0},
+                json={"messages": [{"role": "user", "content": full_prompt}]},
                 timeout=30,
             )
             if resp.status_code == 200:

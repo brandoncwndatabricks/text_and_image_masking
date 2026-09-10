@@ -161,7 +161,6 @@ def detect_sensitive_vlm(
             {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}},
         ]}],
         "max_tokens": 1500,
-        "temperature": 0,
     }
     try:
         token = _get_token(profile)

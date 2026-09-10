@@ -217,7 +217,7 @@ def claude_pii_indices(contents):
     for attempt in range(2):  # try, then retry once
         try:
             resp = ws().serving_endpoints.query(
-                name=CLAUDE_ENDPOINT, temperature=0,
+                name=CLAUDE_ENDPOINT,
                 messages=[ChatMessage(role=ChatMessageRole.USER, content=prompt)])
             content = resp.choices[0].message.content
             # Reasoning models (e.g. databricks-claude-sonnet-5) return content as
@@ -256,7 +256,7 @@ def sensitive_detect(img):
     payload = {"messages": [{"role": "user", "content": [
         {"type": "text", "text": vlm_detect.build_prompt(sw, sh)},
         {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}}]}],
-        "max_tokens": 1500, "temperature": 0}
+        "max_tokens": 1500}
     cfg = ws().config
     headers = dict(cfg.authenticate()); headers["Content-Type"] = "application/json"
     url = cfg.host.rstrip("/") + f"/serving-endpoints/{CLAUDE_ENDPOINT}/invocations"
