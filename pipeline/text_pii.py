@@ -65,34 +65,28 @@ SIGNOFF_CUES = [
 NAME_ROLE_CAPTION = re.compile(r"^[A-Z][A-Za-z.\-]+(?:\s+[A-Z][A-Za-z.\-]+){0,3},\s+[A-Z]")
 
 SENSITIVE_TEXT_PROMPT = """\
-You are redacting documents for a professional-services firm (consulting, audit, \
-tax, advisory) that handles confidential client engagements. Err on the side of \
-masking: flag ANY text element that identifies a client, a person, an \
-organization, a brand, an engagement, or that is otherwise sensitive. Mask an \
-item if it contains ANY of:
-- Customer / client names and any customer entity (subsidiaries, affiliates, \
-  fund or deal names, ticker symbols)
-- Company, organization, or firm names (the firm's own name and third parties)
-- Brand names, product names, or brand wordmarks rendered as text \
-  (e.g. "AUDI", "Gartner", "Salesforce") — treat a standalone brand word as sensitive
-- Employee / person names — partners, staff, signatories, contacts \
-  (first, last, or full name), and titles tied to a named person
-- Project, engagement, matter, or codename identifiers (e.g. "Project Atlas", \
-  engagement numbers, matter IDs)
-- Signature blocks and "signed by / approved by" names
-- Street addresses, cities, postal / ZIP codes, countries tied to a party
-- Phone, fax, email addresses, and website URLs
-- Government / financial identifiers: SSN, EIN/TIN, routing/account numbers, \
-  IBAN, card numbers, case numbers
-- Monetary amounts, fees, or figures tied to a specific client or engagement
-- Any other personally identifiable or client-confidential information
+You are reviewing text elements extracted from a professional-services document \
+(consulting, audit, tax, advisory). Flag an element for masking ONLY when the \
+element itself IS a piece of sensitive or identifying DATA — not merely prose that \
+mentions someone. Flag it if the element is:
+- a contact detail: phone / fax number, email address, website URL, or a street / \
+  postal address
+- a government or financial identifier: SSN, EIN / TIN, routing / account / IBAN, \
+  card, or case number; or a monetary amount presented as a data field
+- a person's name shown as a LABEL, caption, signature, or by-line (e.g. \
+  "Eleanor Whitcombe, CEO" under a photo, or a signed name), rather than inside a sentence
+- a standalone brand / company / product WORDMARK or logo rendered as text \
+  (e.g. "AUDI", "Gartner", "Salesforce", a letterhead name) shown on its own
+- a project / engagement / matter identifier or codename (e.g. "Project Atlas", \
+  an engagement or matter number)
 
-Do NOT flag text that identifies no one — generic narrative sentences, section \
-headings and titles, quotations, common nouns, generic legal disclaimers, page \
-numbers, or dates with no other identifying context — even if they sit near \
-sensitive lines. Flag an element only when it actually contains one of the \
-identifiers above; a sentence is not sensitive merely because it discusses the \
-client's business in general terms."""
+Do NOT flag running prose or narrative. A heading, a body sentence, or a \
+quotation is NOT sensitive just because it happens to mention a client, company, \
+or person by name — keep, for example, "we conducted interviews with the team at \
+Cascade Retail Holdings" and "Ms. Whitcombe outlined three priorities". Also keep \
+generic words, standalone numbers without context, page numbers, dates, and \
+common nouns. When an element is ordinary sentence text, keep it even if a name \
+appears in it; mask the standalone data fields, labels, and wordmarks instead."""
 
 
 def regex_is_sensitive(text: str) -> bool:
@@ -154,22 +148,21 @@ def parse_document_text_elements(
 def split_into_lines(dets: List[Detection]) -> List[Detection]:
     """Split a multi-line text element into one detection PER LINE.
 
-    ``ai_parse_document`` returns one coarse box per element — a whole paragraph
-    or contact block is a single box — so masking the element blacks out generic
-    text around one PII token (the main source of over-redaction). For a
-    multi-line element we partition its box into equal vertical bands (one per
-    content line) so the downstream regex/Claude filter can mask only the
-    sensitive lines.
+    ``ai_parse_document`` returns one coarse box per element, and it often groups
+    several paragraphs (e.g. a narrative + a "Direct line: … email …" contact
+    line) into a SINGLE element — so masking that element blacks out the whole
+    story around one phone number. We split a multi-line element into one
+    detection per content line so the regex/Claude filter can mask only the
+    sensitive line(s) and keep the narrative.
 
-    SAFETY: equal bands only line up when each content line is one *visual* line.
-    A long sentence wraps to several visual lines, so an equal split would leave
-    part of it (possibly the PII) OUTSIDE its band — under-redaction. We therefore
-    split ONLY stacked SHORT lines that cannot wrap (contact blocks, signature /
-    address blocks); any element with a long (wrappable) line, a table, or a
-    figure is left whole (masked in full — safe). Bands overlap slightly so a
-    kept split line is never left half-visible either.
+    Each line's band is sized in PROPORTION to its character length rather than
+    split evenly. For roughly-constant character width, a line's share of the
+    element's characters ≈ its share of the element's height (a line that wraps to
+    two visual lines has ~twice the characters and ~twice the height), so a masked
+    line's band lands on the text it names instead of drifting — the equal-band
+    approach mis-covered wrapped lines. A small vertical pad guards the seams.
+    Tables (HTML) and figures are left whole.
     """
-    SHORT_LINE_MAX = 45   # chars; longer lines can wrap → unsafe to band-split
     out: List[Detection] = []
     for d in dets:
         content = d.meta.get("content", d.label) or ""
@@ -177,22 +170,23 @@ def split_into_lines(dets: List[Detection]) -> List[Detection]:
         lines = content.split("\n")
         non_empty = [ln for ln in lines if ln.strip()]
         if (d.source != "text" or etype in FIGURE_TYPES
-                or content.strip().startswith("<table") or len(non_empty) < 2
-                or max(len(ln.strip()) for ln in non_empty) > SHORT_LINE_MAX):
+                or content.strip().startswith("<table") or len(non_empty) < 2):
             out.append(d)
             continue
         x1, y1, x2, y2 = d.box
-        n = len(lines)
-        h = (y2 - y1) / n
-        vpad = 0.12 * h
-        for i, ln in enumerate(lines):
-            if not ln.strip():
-                continue
-            sy1 = max(y1, y1 + i * h - vpad)
-            sy2 = min(y2, y1 + (i + 1) * h + vpad)
-            out.append(Detection(box=[x1, sy1, x2, sy2], source="text",
-                                  label=ln.strip()[:40], score=d.score,
-                                  meta={"content": ln.strip(), "elem_type": etype, "split": True}))
+        Hbox = y2 - y1
+        weights = [max(1, len(ln.strip())) if ln.strip() else 0 for ln in lines]
+        total = sum(weights) or 1
+        vpad = min(6.0, 0.04 * Hbox)
+        acc = 0
+        for ln, w in zip(lines, weights):
+            if ln.strip():
+                sy1 = max(y1, y1 + (acc / total) * Hbox - vpad)
+                sy2 = min(y2, y1 + ((acc + w) / total) * Hbox + vpad)
+                out.append(Detection(box=[x1, sy1, x2, sy2], source="text",
+                                      label=ln.strip()[:40], score=d.score,
+                                      meta={"content": ln.strip(), "elem_type": etype, "split": True}))
+            acc += w
     return out
 
 
@@ -329,10 +323,21 @@ def filter_sensitive(
             classifier_error = str(e)
 
     for i, d in enumerate(text_dets):
+        content = d.meta.get("content", d.label) or ""
         if regex_flags[i]:
             d.mask = True
         elif claude_indices is not None:
             d.mask = i in claude_indices
+            # Keep-prose guard: the classifier tends to flag any running sentence
+            # that merely names a client or person. We only want to black out
+            # standalone DATA — contact fields, captions/labels, wordmarks, IDs —
+            # not the narrative. So if the model flagged an element that is a long
+            # prose sentence carrying no hard (regex) PII, keep it visible. This
+            # reproduces the intended snippet-level redaction (mask the data, keep
+            # the story) rather than blacking whole paragraphs.
+            if d.mask and _is_prose(content):
+                d.mask = False
+                d.meta["kept_prose"] = True
         elif classifier_error is not None:
             # Fail-safe: classifier down → don't silently under-mask.
             d.mask = (on_error == "mask_all")
@@ -341,6 +346,20 @@ def filter_sensitive(
             # No endpoint configured at all → regex hits only.
             d.mask = False
     return dets
+
+
+# A "prose" element is a running sentence, not a data field / label / wordmark:
+# several words AND sentence-like punctuation. Captions ("Name, CEO") and
+# wordmarks ("Meridian Advisory Partners") are short and are NOT treated as prose.
+PROSE_MIN_WORDS = 8
+
+def _is_prose(text: str) -> bool:
+    t = (text or "").strip()
+    words = t.split()
+    if len(words) < PROSE_MIN_WORDS:
+        return False
+    # sentence-like: contains a period/‘,’-heavy clause or ends with terminal punct
+    return ("." in t[:-1]) or t.endswith((".", "”", '"')) or t.count(" ") >= PROSE_MIN_WORDS
 
 
 class ClassifierUnavailable(RuntimeError):
