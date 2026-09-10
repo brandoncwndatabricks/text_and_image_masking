@@ -1,107 +1,171 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1240 582" role="img"
-     aria-label="Masking pipeline, left to right. Input: one image or document. Four parallel detector lanes, each FIND then DECIDE: Logos — Grounding DINO finds logo-shaped boxes, then a flat-fill + CLIP gate keeps real brand marks (own logo allowlisted). Faces — YuNet finds faces, padded ~15% and blurred. Text/PII — ai_parse_document reads text elements, which are split into per-line boxes so that regex + a Claude classifier mask only the sensitive data fields (contact lines, captions, IDs) while keeping the narrative and boilerplate. Sensitive items (optional, off by default) — Claude vision finds in-image PII and objects and returns only the sensitive ones, falling back to Grounding DINO open-vocab. All lanes MERGE onto one aligned coordinate frame, then OUTPUT a non-destructive labelled overlay and a redacted copy (faces blurred; logos, text and items blacked).">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 600" role="img"
+     font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif"
+     aria-label="Masking pipeline, left to right. Input: one image or document fans into four parallel detector lanes, each a two-step FIND then DECIDE funnel. Logos — Grounding DINO finds logo-shaped boxes, then a flat-fill and CLIP gate masks real brand marks while dropping icons and charts and keeping your own logo via an allowlist. Faces — YuNet finds faces, each padded about 15 percent and Gaussian-blurred rather than boxed. Text/PII — ai_parse_document reads text elements, which are split into per-line boxes so regex plus a Claude classifier mask only the sensitive data fields (contact lines, captions, IDs) while keeping the narrative and boilerplate. Sensitive items (optional, off by default) — Claude vision reads the image and returns only sensitive regions (in-image PII, IDs, cards, screens), falling back to Grounding DINO open-vocabulary detection. All four lanes MERGE onto one aligned coordinate frame (clip, pad, NMS), then OUTPUT a non-destructive labelled overlay and a redacted copy in which faces are blurred and logos, text and items are blacked out. Legend: a filled square marks what is masked, a check marks what is kept.">
   <title>Text &amp; Image Masking — pipeline overview</title>
   <defs>
-    <marker id="ah" markerWidth="9" markerHeight="8" refX="7" refY="3" orient="auto" markerUnits="userSpaceOnUse">
-      <path d="M0,0 L8,3 L0,6 Z" fill="#6b7480"/>
+    <marker id="ah" markerWidth="9" markerHeight="8" refX="7.5" refY="3" orient="auto" markerUnits="userSpaceOnUse">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#7b8494"/>
     </marker>
+    <filter id="sh" x="-20%" y="-30%" width="140%" height="160%">
+      <feDropShadow dx="0" dy="2" stdDeviation="2.5" flood-color="#1f2a44" flood-opacity="0.12"/>
+    </filter>
+    <linearGradient id="blurpx" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#9aa4b2"/><stop offset="0.5" stop-color="#c7ced8"/><stop offset="1" stop-color="#9aa4b2"/>
+    </linearGradient>
   </defs>
 
-  <rect x="1" y="1" width="1238" height="580" rx="14" fill="#ffffff" stroke="#e3e7ee" stroke-width="1.5"/>
+  <rect x="0.75" y="0.75" width="1278.5" height="598.5" rx="16" fill="#ffffff" stroke="#e6e9f0" stroke-width="1.5"/>
 
-  <!-- ── numbered stage headers ─────────────────────────────────────────────── -->
-  <text x="365"  y="40" text-anchor="middle" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="14" font-weight="700" fill="#3d4b5e">① FIND — where might it be?</text>
-  <text x="745"  y="40" text-anchor="middle" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="14" font-weight="700" fill="#3d4b5e">② DECIDE — what to mask?</text>
-  <text x="970"  y="40" text-anchor="middle" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="14" font-weight="700" fill="#3d4b5e">③ MERGE</text>
-  <text x="1125" y="40" text-anchor="middle" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="14" font-weight="700" fill="#3d4b5e">④ OUTPUT</text>
-  <line x1="24" y1="52" x2="1216" y2="52" stroke="#eef1f5" stroke-width="1.5"/>
+  <!-- ── stage headers ─────────────────────────────────────────────────────── -->
+  <text x="375"  y="38" text-anchor="middle" font-size="14.5" font-weight="700" fill="#374357">① FIND — where might it be?</text>
+  <text x="755"  y="38" text-anchor="middle" font-size="14.5" font-weight="700" fill="#374357">② DECIDE — what gets masked?</text>
+  <text x="981"  y="38" text-anchor="middle" font-size="14.5" font-weight="700" fill="#374357">③ MERGE</text>
+  <text x="1149" y="38" text-anchor="middle" font-size="14.5" font-weight="700" fill="#374357">④ OUTPUT</text>
+  <line x1="26" y1="50" x2="1254" y2="50" stroke="#edf0f5" stroke-width="1.5"/>
 
-  <!-- ── INPUT (spans the lanes) ────────────────────────────────────────────── -->
-  <rect x="24" y="108" width="140" height="400" rx="10" fill="#eef1f5" stroke="#3d4b5e" stroke-width="1.5"/>
-  <text x="94" y="290" text-anchor="middle" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="14" font-weight="700" fill="#1f2733">INPUT</text>
-  <text x="94" y="312" text-anchor="middle" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="11" fill="#5b6472">one image</text>
-  <text x="94" y="328" text-anchor="middle" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="11" fill="#5b6472">or document</text>
-  <text x="94" y="350" text-anchor="middle" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#8a94a2">PDF · PNG · JPG</text>
-  <text x="94" y="364" text-anchor="middle" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#8a94a2">slide · scan</text>
+  <!-- ── INPUT ─────────────────────────────────────────────────────────────── -->
+  <rect x="28" y="100" width="134" height="424" rx="12" fill="#eef1f6" stroke="#3d4b5e" stroke-width="1.5" filter="url(#sh)"/>
+  <!-- stacked-page glyph -->
+  <g transform="translate(78,150)">
+    <rect x="6" y="6" width="42" height="54" rx="5" fill="#ffffff" stroke="#9aa4b2" stroke-width="1.6"/>
+    <rect x="0" y="0" width="42" height="54" rx="5" fill="#ffffff" stroke="#3d4b5e" stroke-width="1.8"/>
+    <rect x="8" y="10" width="26" height="3" rx="1.5" fill="#c0c7d2"/>
+    <rect x="8" y="18" width="26" height="3" rx="1.5" fill="#c0c7d2"/>
+    <circle cx="14" cy="34" r="6" fill="#dfe4ec"/>
+    <rect x="8" y="44" width="26" height="3" rx="1.5" fill="#c0c7d2"/>
+  </g>
+  <text x="95" y="250" text-anchor="middle" font-size="14" font-weight="700" fill="#1f2733">INPUT</text>
+  <text x="95" y="270" text-anchor="middle" font-size="11" fill="#5b6472">one image</text>
+  <text x="95" y="285" text-anchor="middle" font-size="11" fill="#5b6472">or document</text>
+  <text x="95" y="308" text-anchor="middle" font-size="10" fill="#8a94a2">PDF · PNG · JPG</text>
+  <text x="95" y="322" text-anchor="middle" font-size="10" fill="#8a94a2">slide · scan · card</text>
 
-  <!-- input → each lane -->
-  <line x1="164" y1="146" x2="200" y2="146" stroke="#6b7480" stroke-width="1.4" marker-end="url(#ah)"/>
-  <line x1="164" y1="254" x2="200" y2="254" stroke="#6b7480" stroke-width="1.4" marker-end="url(#ah)"/>
-  <line x1="164" y1="362" x2="200" y2="362" stroke="#6b7480" stroke-width="1.4" marker-end="url(#ah)"/>
-  <line x1="164" y1="470" x2="200" y2="470" stroke="#6b7480" stroke-width="1.4" marker-end="url(#ah)"/>
+  <line x1="162" y1="141" x2="206" y2="141" stroke="#7b8494" stroke-width="1.5" marker-end="url(#ah)"/>
+  <line x1="162" y1="255" x2="206" y2="255" stroke="#7b8494" stroke-width="1.5" marker-end="url(#ah)"/>
+  <line x1="162" y1="369" x2="206" y2="369" stroke="#7b8494" stroke-width="1.5" marker-end="url(#ah)"/>
+  <line x1="162" y1="483" x2="206" y2="483" stroke="#7b8494" stroke-width="1.5" marker-end="url(#ah)"/>
 
-  <!-- ══ LANE 1 · LOGOS (red) ══ y 108-184 ══ -->
-  <rect x="200" y="108" width="330" height="76" rx="10" fill="#fbecea" stroke="#d0342c" stroke-width="1.5"/>
-  <text x="216" y="130" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" font-weight="700" fill="#d0342c" letter-spacing="0.6">LOGOS</text>
-  <text x="216" y="150" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="14" font-weight="700" fill="#1f2733">Grounding DINO</text>
-  <text x="216" y="168" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="11" fill="#5b6472">find logo-shaped boxes (open-vocab)</text>
-  <line x1="530" y1="146" x2="580" y2="146" stroke="#6b7480" stroke-width="1.4" marker-end="url(#ah)"/>
-  <rect x="580" y="108" width="330" height="76" rx="10" fill="#fbecea" stroke="#d0342c" stroke-width="1.5"/>
-  <text x="596" y="136" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="13" font-weight="700" fill="#1f2733">flat-fill → CLIP gate</text>
-  <text x="596" y="156" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="11" fill="#5b6472">real brand mark? drop shapes/icons.</text>
-  <text x="596" y="172" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="11" fill="#5b6472">keep your own logo (allowlist)</text>
+  <!-- ══════════════ LANE 1 · LOGOS (red) · top 100 ══════════════ -->
+  <rect x="210" y="100" width="330" height="82" rx="11" fill="#fcecea" stroke="#d0342c" stroke-width="1.5" filter="url(#sh)"/>
+  <g transform="translate(224,127)">
+    <rect x="0" y="0" width="28" height="28" rx="7" fill="none" stroke="#d0342c" stroke-width="2"/>
+    <circle cx="10" cy="14" r="3.6" fill="#d0342c"/>
+    <rect x="16" y="7" width="4.4" height="14" rx="2.2" fill="#d0342c"/>
+  </g>
+  <text x="266" y="122" font-size="10" font-weight="700" fill="#d0342c" letter-spacing="0.7">LOGOS</text>
+  <text x="266" y="145" font-size="15" font-weight="700" fill="#1f2733">Grounding DINO</text>
+  <text x="266" y="165" font-size="11" fill="#5b6472">open-vocab · find logo-shaped boxes</text>
+  <line x1="540" y1="141" x2="594" y2="141" stroke="#7b8494" stroke-width="1.5" marker-end="url(#ah)"/>
+  <text x="567" y="132" text-anchor="middle" font-size="9.5" font-style="italic" fill="#9aa4b2">boxes</text>
+  <rect x="596" y="100" width="330" height="82" rx="11" fill="#fcecea" stroke="#d0342c" stroke-width="1.5" filter="url(#sh)"/>
+  <text x="612" y="124" font-size="13.5" font-weight="700" fill="#1f2733">flat-fill → CLIP gate</text>
+  <rect x="613" y="137" width="9" height="9" rx="2" fill="#2b2f36"/>
+  <text x="628" y="145" font-size="11" fill="#3d4b5e">mask real third-party brand marks</text>
+  <polyline points="613,164 617,168 623,160" fill="none" stroke="#2e8b57" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="628" y="167" font-size="11" fill="#3d4b5e">drop icons/charts · keep your own logo</text>
 
-  <!-- ══ LANE 2 · FACES (blue) ══ y 216-292 ══ -->
-  <rect x="200" y="216" width="330" height="76" rx="10" fill="#e9f2fa" stroke="#2277b8" stroke-width="1.5"/>
-  <text x="216" y="238" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" font-weight="700" fill="#2277b8" letter-spacing="0.6">FACES</text>
-  <text x="216" y="258" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="14" font-weight="700" fill="#1f2733">YuNet</text>
-  <text x="216" y="276" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="11" fill="#5b6472">find faces (OpenCV DNN, local)</text>
-  <line x1="530" y1="254" x2="580" y2="254" stroke="#6b7480" stroke-width="1.4" marker-end="url(#ah)"/>
-  <rect x="580" y="216" width="330" height="76" rx="10" fill="#e9f2fa" stroke="#2277b8" stroke-width="1.5"/>
-  <text x="596" y="246" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="13" font-weight="700" fill="#1f2733">pad ~15% → blur</text>
-  <text x="596" y="266" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="11" fill="#5b6472">always masked · de-identify, not a box</text>
+  <!-- ══════════════ LANE 2 · FACES (blue) · top 214 ══════════════ -->
+  <rect x="210" y="214" width="330" height="82" rx="11" fill="#e9f2fb" stroke="#2277b8" stroke-width="1.5" filter="url(#sh)"/>
+  <g transform="translate(224,241)">
+    <circle cx="14" cy="9" r="5.6" fill="none" stroke="#2277b8" stroke-width="2"/>
+    <path d="M3,27 a11,10 0 0 1 22,0" fill="none" stroke="#2277b8" stroke-width="2"/>
+  </g>
+  <text x="266" y="236" font-size="10" font-weight="700" fill="#2277b8" letter-spacing="0.7">FACES</text>
+  <text x="266" y="259" font-size="15" font-weight="700" fill="#1f2733">YuNet</text>
+  <text x="266" y="279" font-size="11" fill="#5b6472">OpenCV DNN · runs locally</text>
+  <line x1="540" y1="255" x2="594" y2="255" stroke="#7b8494" stroke-width="1.5" marker-end="url(#ah)"/>
+  <text x="567" y="246" text-anchor="middle" font-size="9.5" font-style="italic" fill="#9aa4b2">faces</text>
+  <rect x="596" y="214" width="330" height="82" rx="11" fill="#e9f2fb" stroke="#2277b8" stroke-width="1.5" filter="url(#sh)"/>
+  <text x="612" y="242" font-size="13.5" font-weight="700" fill="#1f2733">pad ~15% → Gaussian blur</text>
+  <rect x="613" y="258" width="9" height="9" rx="2" fill="#2b2f36"/>
+  <text x="628" y="266" font-size="11" fill="#3d4b5e">blur every face — de-identify, not a box</text>
 
-  <!-- ══ LANE 3 · TEXT / PII (gold) ══ y 324-400 ══ -->
-  <rect x="200" y="324" width="330" height="76" rx="10" fill="#fbf1da" stroke="#b07d10" stroke-width="1.5"/>
-  <text x="216" y="346" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" font-weight="700" fill="#b07d10" letter-spacing="0.6">TEXT / PII</text>
-  <text x="216" y="366" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="14" font-weight="700" fill="#1f2733">ai_parse_document</text>
-  <text x="216" y="384" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="11" fill="#5b6472">read text elements + boxes (docs)</text>
-  <line x1="530" y1="362" x2="580" y2="362" stroke="#6b7480" stroke-width="1.4" marker-end="url(#ah)"/>
-  <rect x="580" y="324" width="330" height="76" rx="10" fill="#fbf1da" stroke="#b07d10" stroke-width="1.5"/>
-  <text x="596" y="350" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="13" font-weight="700" fill="#1f2733">split lines → regex + Claude</text>
-  <text x="596" y="368" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="11" fill="#5b6472">mask only the sensitive data fields —</text>
-  <text x="596" y="384" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="11" fill="#5b6472">keep the narrative &amp; boilerplate</text>
+  <!-- ══════════════ LANE 3 · TEXT / PII (gold) · top 328 ══════════════ -->
+  <rect x="210" y="328" width="330" height="82" rx="11" fill="#fbf1da" stroke="#b07d10" stroke-width="1.5" filter="url(#sh)"/>
+  <g transform="translate(224,341)">
+    <rect x="0" y="4"  width="28" height="3.4" rx="1.7" fill="#b07d10"/>
+    <rect x="0" y="12" width="28" height="3.4" rx="1.7" fill="#b07d10"/>
+    <rect x="0" y="20" width="17" height="3.4" rx="1.7" fill="#b07d10"/>
+  </g>
+  <text x="266" y="350" font-size="10" font-weight="700" fill="#b07d10" letter-spacing="0.7">TEXT / PII</text>
+  <text x="266" y="373" font-size="15" font-weight="700" fill="#1f2733">ai_parse_document</text>
+  <text x="266" y="393" font-size="11" fill="#5b6472">read text elements + boxes (docs)</text>
+  <line x1="540" y1="369" x2="594" y2="369" stroke="#7b8494" stroke-width="1.5" marker-end="url(#ah)"/>
+  <text x="567" y="360" text-anchor="middle" font-size="9.5" font-style="italic" fill="#9aa4b2">elements</text>
+  <rect x="596" y="328" width="330" height="82" rx="11" fill="#fbf1da" stroke="#b07d10" stroke-width="1.5" filter="url(#sh)"/>
+  <text x="612" y="352" font-size="13.5" font-weight="700" fill="#1f2733">split lines → regex + Claude</text>
+  <rect x="613" y="365" width="9" height="9" rx="2" fill="#2b2f36"/>
+  <text x="628" y="373" font-size="11" fill="#3d4b5e">mask only the sensitive data fields</text>
+  <polyline points="613,392 617,396 623,388" fill="none" stroke="#2e8b57" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="628" y="395" font-size="11" fill="#3d4b5e">keep the narrative &amp; boilerplate</text>
 
-  <!-- ══ LANE 4 · SENSITIVE (orange, dashed = optional) ══ y 432-508 ══ -->
-  <rect x="200" y="432" width="330" height="76" rx="10" fill="#fff3e6" stroke="#d9730a" stroke-width="1.5" stroke-dasharray="5 3"/>
-  <text x="216" y="454" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" font-weight="700" fill="#d9730a" letter-spacing="0.6">SENSITIVE ITEMS · OPTIONAL</text>
-  <text x="216" y="474" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="14" font-weight="700" fill="#1f2733">Claude vision</text>
-  <text x="216" y="492" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="11" fill="#5b6472">find in-image PII + items (IDs, cards, screens)</text>
-  <line x1="530" y1="470" x2="580" y2="470" stroke="#6b7480" stroke-width="1.4" marker-end="url(#ah)"/>
-  <rect x="580" y="432" width="330" height="76" rx="10" fill="#fff3e6" stroke="#d9730a" stroke-width="1.5" stroke-dasharray="5 3"/>
-  <text x="596" y="462" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="13" font-weight="700" fill="#1f2733">selective — reads &amp; judges</text>
-  <text x="596" y="482" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="11" fill="#5b6472">returns only sensitive regions</text>
-  <text x="596" y="498" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10.5" font-style="italic" fill="#9a6a30">fallback: Grounding DINO open-vocab</text>
+  <!-- ══════════════ LANE 4 · SENSITIVE (orange, dashed = optional) · top 442 ══════════════ -->
+  <rect x="210" y="442" width="330" height="82" rx="11" fill="#fff4e8" stroke="#d9730a" stroke-width="1.5" stroke-dasharray="6 3" filter="url(#sh)"/>
+  <g transform="translate(224,455)">
+    <rect x="0" y="3" width="28" height="22" rx="4" fill="none" stroke="#d9730a" stroke-width="2"/>
+    <circle cx="8" cy="14" r="3.6" fill="none" stroke="#d9730a" stroke-width="1.8"/>
+    <rect x="14" y="10" width="10" height="2.6" rx="1.3" fill="#d9730a"/>
+    <rect x="14" y="16" width="10" height="2.6" rx="1.3" fill="#d9730a"/>
+  </g>
+  <text x="266" y="464" font-size="10" font-weight="700" fill="#d9730a" letter-spacing="0.7">SENSITIVE ITEMS · OPTIONAL</text>
+  <text x="266" y="487" font-size="15" font-weight="700" fill="#1f2733">Claude vision</text>
+  <text x="266" y="507" font-size="11" fill="#5b6472">in-image PII + items (IDs, cards, screens)</text>
+  <line x1="540" y1="483" x2="594" y2="483" stroke="#7b8494" stroke-width="1.5" marker-end="url(#ah)"/>
+  <text x="567" y="474" text-anchor="middle" font-size="9.5" font-style="italic" fill="#9aa4b2">regions</text>
+  <rect x="596" y="442" width="330" height="82" rx="11" fill="#fff4e8" stroke="#d9730a" stroke-width="1.5" stroke-dasharray="6 3" filter="url(#sh)"/>
+  <text x="612" y="464" font-size="13.5" font-weight="700" fill="#1f2733">selective — reads &amp; judges</text>
+  <rect x="613" y="476" width="9" height="9" rx="2" fill="#2b2f36"/>
+  <text x="628" y="484" font-size="11" fill="#3d4b5e">returns only the sensitive regions</text>
+  <text x="612" y="506" font-size="10" font-style="italic" fill="#9a6a30">fallback: Grounding DINO open-vocab</text>
 
   <!-- lanes → merge -->
-  <line x1="910" y1="146" x2="938" y2="146" stroke="#6b7480" stroke-width="1.4" marker-end="url(#ah)"/>
-  <line x1="910" y1="254" x2="938" y2="254" stroke="#6b7480" stroke-width="1.4" marker-end="url(#ah)"/>
-  <line x1="910" y1="362" x2="938" y2="362" stroke="#6b7480" stroke-width="1.4" marker-end="url(#ah)"/>
-  <line x1="910" y1="470" x2="938" y2="470" stroke="#6b7480" stroke-width="1.4" marker-end="url(#ah)"/>
+  <line x1="926" y1="141" x2="948" y2="141" stroke="#7b8494" stroke-width="1.5" marker-end="url(#ah)"/>
+  <line x1="926" y1="255" x2="948" y2="255" stroke="#7b8494" stroke-width="1.5" marker-end="url(#ah)"/>
+  <line x1="926" y1="369" x2="948" y2="369" stroke="#7b8494" stroke-width="1.5" marker-end="url(#ah)"/>
+  <line x1="926" y1="483" x2="948" y2="483" stroke="#7b8494" stroke-width="1.5" marker-end="url(#ah)"/>
 
-  <!-- ── MERGE bar ──────────────────────────────────────────────────────────── -->
-  <rect x="938" y="108" width="66" height="400" rx="10" fill="#eef1f5" stroke="#3d4b5e" stroke-width="1.5"/>
-  <text x="971" y="296" text-anchor="middle" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="12" font-weight="700" fill="#1f2733">align</text>
-  <text x="971" y="312" text-anchor="middle" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="12" font-weight="700" fill="#1f2733">boxes</text>
-  <text x="971" y="330" text-anchor="middle" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="9.5" fill="#5b6472">clip·pad</text>
-  <text x="971" y="343" text-anchor="middle" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="9.5" fill="#5b6472">NMS</text>
+  <!-- ── MERGE ─────────────────────────────────────────────────────────────── -->
+  <rect x="950" y="100" width="60" height="424" rx="11" fill="#eef1f6" stroke="#3d4b5e" stroke-width="1.5" filter="url(#sh)"/>
+  <text x="980" y="300" text-anchor="middle" font-size="12.5" font-weight="700" fill="#1f2733">align</text>
+  <text x="980" y="316" text-anchor="middle" font-size="12.5" font-weight="700" fill="#1f2733">boxes</text>
+  <text x="980" y="336" text-anchor="middle" font-size="9.5" fill="#5b6472">clip · pad</text>
+  <text x="980" y="349" text-anchor="middle" font-size="9.5" fill="#5b6472">NMS</text>
 
   <!-- merge → outputs -->
-  <line x1="1004" y1="308" x2="1030" y2="200" stroke="#6b7480" stroke-width="1.4" marker-end="url(#ah)"/>
-  <line x1="1004" y1="308" x2="1030" y2="360" stroke="#6b7480" stroke-width="1.4" marker-end="url(#ah)"/>
+  <line x1="1010" y1="312" x2="1042" y2="206" stroke="#7b8494" stroke-width="1.5" marker-end="url(#ah)"/>
+  <line x1="1010" y1="312" x2="1042" y2="374" stroke="#7b8494" stroke-width="1.5" marker-end="url(#ah)"/>
 
-  <!-- ── OUTPUTS ────────────────────────────────────────────────────────────── -->
-  <rect x="1030" y="150" width="186" height="96" rx="10" fill="#eef1f5" stroke="#4a5a6a" stroke-width="1.5"/>
-  <text x="1123" y="176" text-anchor="middle" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="13" font-weight="700" fill="#1f2733">Debug overlay</text>
-  <text x="1123" y="196" text-anchor="middle" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10.5" fill="#5b6472">labelled boxes · non-destructive</text>
-  <text x="1123" y="228" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11" fill="#3d4b5e">*_overlay.jpg</text>
+  <!-- ── OUTPUT: overlay ───────────────────────────────────────────────────── -->
+  <rect x="1044" y="150" width="212" height="112" rx="11" fill="#eef1f6" stroke="#4a5a6a" stroke-width="1.5" filter="url(#sh)"/>
+  <g transform="translate(1060,178)">
+    <rect x="0" y="0" width="36" height="56" rx="4" fill="#ffffff" stroke="#9aa4b2" stroke-width="1.4"/>
+    <rect x="6"  y="6"  width="18" height="8" rx="1.5" fill="none" stroke="#d0342c" stroke-width="1.6"/>
+    <rect x="20" y="20" width="11" height="11" rx="1.5" fill="none" stroke="#2277b8" stroke-width="1.6"/>
+    <rect x="5"  y="42" width="26" height="7" rx="1.5" fill="none" stroke="#b07d10" stroke-width="1.6"/>
+  </g>
+  <text x="1112" y="186" font-size="13" font-weight="700" fill="#1f2733">Debug overlay</text>
+  <text x="1112" y="205" font-size="10.5" fill="#5b6472">labelled boxes,</text>
+  <text x="1112" y="220" font-size="10.5" fill="#5b6472">non-destructive</text>
+  <text x="1112" y="244" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11" fill="#3d4b5e">*_overlay.jpg</text>
 
-  <rect x="1030" y="300" width="186" height="128" rx="10" fill="#eceef1" stroke="#222831" stroke-width="1.5"/>
-  <text x="1123" y="326" text-anchor="middle" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="13" font-weight="700" fill="#1f2733">Redacted copy</text>
-  <text x="1123" y="348" text-anchor="middle" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10.5" fill="#5b6472">faces → blur</text>
-  <text x="1123" y="364" text-anchor="middle" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10.5" fill="#5b6472">logos · text · items → black</text>
-  <text x="1123" y="396" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11" fill="#1f2733">*_masked.jpg</text>
+  <!-- ── OUTPUT: redacted ──────────────────────────────────────────────────── -->
+  <rect x="1044" y="298" width="212" height="150" rx="11" fill="#eceef2" stroke="#222831" stroke-width="1.5" filter="url(#sh)"/>
+  <g transform="translate(1060,326)">
+    <rect x="0" y="0" width="36" height="56" rx="4" fill="#ffffff" stroke="#9aa4b2" stroke-width="1.4"/>
+    <rect x="6"  y="6"  width="18" height="8" rx="1.5" fill="#15181d"/>
+    <rect x="20" y="20" width="11" height="11" rx="2" fill="url(#blurpx)"/>
+    <rect x="5"  y="42" width="26" height="7" rx="1.5" fill="#15181d"/>
+  </g>
+  <text x="1112" y="334" font-size="13" font-weight="700" fill="#1f2733">Redacted copy</text>
+  <text x="1112" y="354" font-size="10.5" fill="#5b6472">faces → blur</text>
+  <text x="1112" y="369" font-size="10.5" fill="#5b6472">logos · text ·</text>
+  <text x="1112" y="384" font-size="10.5" fill="#5b6472">items → black</text>
+  <text x="1112" y="410" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11" fill="#1f2733">*_masked.jpg</text>
 
-  <!-- footnote -->
-  <text x="24" y="548" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="11" fill="#8a94a2">Lanes run in parallel and toggle independently. Default on: logos · faces. Off by default: text/PII (needs Databricks) · sensitive items (needs a multimodal Claude endpoint).</text>
+  <!-- ── legend + footnote ─────────────────────────────────────────────────── -->
+  <rect x="596" y="536" width="9" height="9" rx="2" fill="#2b2f36"/>
+  <text x="611" y="544" font-size="10.5" fill="#5b6472">masked</text>
+  <polyline points="662,543 666,547 672,539" fill="none" stroke="#2e8b57" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="680" y="544" font-size="10.5" fill="#5b6472">kept</text>
+  <text x="28" y="576" font-size="11" fill="#8a94a2">Lanes run in parallel and toggle independently. Default on: logos · faces. Off by default: text/PII (needs Databricks) · sensitive items (needs a multimodal Claude endpoint).</text>
 </svg>
