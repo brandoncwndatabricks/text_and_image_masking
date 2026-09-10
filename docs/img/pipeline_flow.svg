@@ -1,171 +1,172 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 600" role="img"
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1360 600" role="img"
      font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif"
-     aria-label="Masking pipeline, left to right. Input: one image or document fans into four parallel detector lanes, each a two-step FIND then DECIDE funnel. Logos — Grounding DINO finds logo-shaped boxes, then a flat-fill and CLIP gate masks real brand marks while dropping icons and charts and keeping your own logo via an allowlist. Faces — YuNet finds faces, each padded about 15 percent and Gaussian-blurred rather than boxed. Text/PII — ai_parse_document reads text elements, which are split into per-line boxes so regex plus a Claude classifier mask only the sensitive data fields (contact lines, captions, IDs) while keeping the narrative and boilerplate. Sensitive items (optional, off by default) — Claude vision reads the image and returns only sensitive regions (in-image PII, IDs, cards, screens), falling back to Grounding DINO open-vocabulary detection. All four lanes MERGE onto one aligned coordinate frame (clip, pad, NMS), then OUTPUT a non-destructive labelled overlay and a redacted copy in which faces are blurred and logos, text and items are blacked out. Legend: a filled square marks what is masked, a check marks what is kept.">
-  <title>Text &amp; Image Masking — pipeline overview</title>
+     aria-label="The journey of a document through the masking pipeline, left to right. Stage 1, CRACK: one document is shown with its sensitive parts highlighted in colour — a header logo (red), a headshot (blue), a contact line amid the body text (gold), and an embedded ID or screen (orange, dashed) — while the body narrative is left plain. Colour-coded arrows carry each part to the model that handles it. Stage 2, FIND: Logos → Grounding DINO finds logo-shaped boxes; Faces → YuNet finds faces locally; Text/PII → ai_parse_document reads text elements; Sensitive items (optional) → Claude vision reads in-image PII and objects. Stage 3, DECIDE: the flat-fill and CLIP gate masks real brand marks and keeps icons and your own logo; faces are padded and Gaussian-blurred; text elements are split into per-line boxes so regex plus a Claude classifier mask only the sensitive data fields and keep the narrative; the vision lane returns only sensitive regions, falling back to Grounding DINO. Stage 4, MERGE: all boxes land on one aligned coordinate frame (clip, pad, NMS). Stage 5, OUTPUT: a non-destructive labelled overlay, and the same document redacted — logo blacked, face blurred, contact line and ID blacked, narrative kept. Note: only the text lane literally cracks the page into elements; the logo, face and item models each scan the whole page in place — colour shows which model owns which part. Legend: a filled square marks what is masked, a check marks what is kept.">
+  <title>Text &amp; Image Masking — journey of a document</title>
   <defs>
-    <marker id="ah" markerWidth="9" markerHeight="8" refX="7.5" refY="3" orient="auto" markerUnits="userSpaceOnUse">
-      <path d="M0,0 L8,3 L0,6 Z" fill="#7b8494"/>
-    </marker>
-    <filter id="sh" x="-20%" y="-30%" width="140%" height="160%">
-      <feDropShadow dx="0" dy="2" stdDeviation="2.5" flood-color="#1f2a44" flood-opacity="0.12"/>
-    </filter>
-    <linearGradient id="blurpx" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#9aa4b2"/><stop offset="0.5" stop-color="#c7ced8"/><stop offset="1" stop-color="#9aa4b2"/>
-    </linearGradient>
+    <marker id="ah"  markerWidth="9" markerHeight="8" refX="7.5" refY="3" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L8,3 L0,6 Z" fill="#7b8494"/></marker>
+    <marker id="ahR" markerWidth="9" markerHeight="8" refX="7.5" refY="3" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L8,3 L0,6 Z" fill="#d0342c"/></marker>
+    <marker id="ahB" markerWidth="9" markerHeight="8" refX="7.5" refY="3" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L8,3 L0,6 Z" fill="#2277b8"/></marker>
+    <marker id="ahG" markerWidth="9" markerHeight="8" refX="7.5" refY="3" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L8,3 L0,6 Z" fill="#b07d10"/></marker>
+    <marker id="ahO" markerWidth="9" markerHeight="8" refX="7.5" refY="3" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L8,3 L0,6 Z" fill="#d9730a"/></marker>
+    <filter id="sh" x="-20%" y="-30%" width="140%" height="160%"><feDropShadow dx="0" dy="2" stdDeviation="2.5" flood-color="#1f2a44" flood-opacity="0.12"/></filter>
+    <linearGradient id="blurpx" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#9aa4b2"/><stop offset="0.5" stop-color="#c7ced8"/><stop offset="1" stop-color="#9aa4b2"/></linearGradient>
   </defs>
 
-  <rect x="0.75" y="0.75" width="1278.5" height="598.5" rx="16" fill="#ffffff" stroke="#e6e9f0" stroke-width="1.5"/>
+  <rect x="0.75" y="0.75" width="1358.5" height="598.5" rx="16" fill="#ffffff" stroke="#e6e9f0" stroke-width="1.5"/>
 
   <!-- ── stage headers ─────────────────────────────────────────────────────── -->
-  <text x="375"  y="38" text-anchor="middle" font-size="14.5" font-weight="700" fill="#374357">① FIND — where might it be?</text>
-  <text x="755"  y="38" text-anchor="middle" font-size="14.5" font-weight="700" fill="#374357">② DECIDE — what gets masked?</text>
-  <text x="981"  y="38" text-anchor="middle" font-size="14.5" font-weight="700" fill="#374357">③ MERGE</text>
-  <text x="1149" y="38" text-anchor="middle" font-size="14.5" font-weight="700" fill="#374357">④ OUTPUT</text>
-  <line x1="26" y1="50" x2="1254" y2="50" stroke="#edf0f5" stroke-width="1.5"/>
+  <text x="140"  y="38" text-anchor="middle" font-size="14.5" font-weight="700" fill="#374357">① CRACK — split the doc</text>
+  <text x="460"  y="38" text-anchor="middle" font-size="14.5" font-weight="700" fill="#374357">② FIND — per model</text>
+  <text x="828"  y="38" text-anchor="middle" font-size="14.5" font-weight="700" fill="#374357">③ DECIDE — what gets masked?</text>
+  <text x="1035" y="38" text-anchor="middle" font-size="14.5" font-weight="700" fill="#374357">④ MERGE</text>
+  <text x="1214" y="38" text-anchor="middle" font-size="14.5" font-weight="700" fill="#374357">⑤ OUTPUT</text>
+  <line x1="26" y1="50" x2="1334" y2="50" stroke="#edf0f5" stroke-width="1.5"/>
 
-  <!-- ── INPUT ─────────────────────────────────────────────────────────────── -->
-  <rect x="28" y="100" width="134" height="424" rx="12" fill="#eef1f6" stroke="#3d4b5e" stroke-width="1.5" filter="url(#sh)"/>
-  <!-- stacked-page glyph -->
-  <g transform="translate(78,150)">
-    <rect x="6" y="6" width="42" height="54" rx="5" fill="#ffffff" stroke="#9aa4b2" stroke-width="1.6"/>
-    <rect x="0" y="0" width="42" height="54" rx="5" fill="#ffffff" stroke="#3d4b5e" stroke-width="1.8"/>
-    <rect x="8" y="10" width="26" height="3" rx="1.5" fill="#c0c7d2"/>
-    <rect x="8" y="18" width="26" height="3" rx="1.5" fill="#c0c7d2"/>
-    <circle cx="14" cy="34" r="6" fill="#dfe4ec"/>
-    <rect x="8" y="44" width="26" height="3" rx="1.5" fill="#c0c7d2"/>
-  </g>
-  <text x="95" y="250" text-anchor="middle" font-size="14" font-weight="700" fill="#1f2733">INPUT</text>
-  <text x="95" y="270" text-anchor="middle" font-size="11" fill="#5b6472">one image</text>
-  <text x="95" y="285" text-anchor="middle" font-size="11" fill="#5b6472">or document</text>
-  <text x="95" y="308" text-anchor="middle" font-size="10" fill="#8a94a2">PDF · PNG · JPG</text>
-  <text x="95" y="322" text-anchor="middle" font-size="10" fill="#8a94a2">slide · scan · card</text>
+  <!-- ══════════════ ① THE DOCUMENT, CRACKED INTO PARTS ══════════════ -->
+  <rect x="24" y="100" width="232" height="424" rx="12" fill="#f4f6fa" stroke="#3d4b5e" stroke-width="1.5" filter="url(#sh)"/>
+  <!-- the page -->
+  <rect x="62" y="116" width="150" height="392" rx="6" fill="#ffffff" stroke="#b9c2cf" stroke-width="1.6"/>
 
-  <line x1="162" y1="141" x2="206" y2="141" stroke="#7b8494" stroke-width="1.5" marker-end="url(#ah)"/>
-  <line x1="162" y1="255" x2="206" y2="255" stroke="#7b8494" stroke-width="1.5" marker-end="url(#ah)"/>
-  <line x1="162" y1="369" x2="206" y2="369" stroke="#7b8494" stroke-width="1.5" marker-end="url(#ah)"/>
-  <line x1="162" y1="483" x2="206" y2="483" stroke="#7b8494" stroke-width="1.5" marker-end="url(#ah)"/>
+  <!-- LOGO part (red) -->
+  <rect x="74" y="129" width="110" height="24" rx="3" fill="#fdf0ef" stroke="#d0342c" stroke-width="1.6"/>
+  <circle cx="86" cy="141" r="4.2" fill="#d0342c"/><rect x="94" y="134" width="4.6" height="15" rx="2.3" fill="#d0342c"/>
+  <text x="108" y="145" font-size="8.5" fill="#c67c77">letterhead</text>
+  <!-- filler body -->
+  <rect x="74" y="164" width="96" height="3" rx="1.5" fill="#ccd3de"/><rect x="74" y="172" width="72" height="3" rx="1.5" fill="#ccd3de"/>
 
-  <!-- ══════════════ LANE 1 · LOGOS (red) · top 100 ══════════════ -->
-  <rect x="210" y="100" width="330" height="82" rx="11" fill="#fcecea" stroke="#d0342c" stroke-width="1.5" filter="url(#sh)"/>
-  <g transform="translate(224,127)">
-    <rect x="0" y="0" width="28" height="28" rx="7" fill="none" stroke="#d0342c" stroke-width="2"/>
-    <circle cx="10" cy="14" r="3.6" fill="#d0342c"/>
-    <rect x="16" y="7" width="4.4" height="14" rx="2.2" fill="#d0342c"/>
-  </g>
-  <text x="266" y="122" font-size="10" font-weight="700" fill="#d0342c" letter-spacing="0.7">LOGOS</text>
-  <text x="266" y="145" font-size="15" font-weight="700" fill="#1f2733">Grounding DINO</text>
-  <text x="266" y="165" font-size="11" fill="#5b6472">open-vocab · find logo-shaped boxes</text>
-  <line x1="540" y1="141" x2="594" y2="141" stroke="#7b8494" stroke-width="1.5" marker-end="url(#ah)"/>
-  <text x="567" y="132" text-anchor="middle" font-size="9.5" font-style="italic" fill="#9aa4b2">boxes</text>
-  <rect x="596" y="100" width="330" height="82" rx="11" fill="#fcecea" stroke="#d0342c" stroke-width="1.5" filter="url(#sh)"/>
-  <text x="612" y="124" font-size="13.5" font-weight="700" fill="#1f2733">flat-fill → CLIP gate</text>
-  <rect x="613" y="137" width="9" height="9" rx="2" fill="#2b2f36"/>
-  <text x="628" y="145" font-size="11" fill="#3d4b5e">mask real third-party brand marks</text>
-  <polyline points="613,164 617,168 623,160" fill="none" stroke="#2e8b57" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-  <text x="628" y="167" font-size="11" fill="#3d4b5e">drop icons/charts · keep your own logo</text>
+  <!-- FACE part (blue) -->
+  <rect x="74" y="234" width="42" height="42" rx="4" fill="#eef5fb" stroke="#2277b8" stroke-width="1.6"/>
+  <circle cx="95" cy="249" r="6" fill="none" stroke="#2277b8" stroke-width="1.8"/><path d="M84,272 a11,10 0 0 1 22,0" fill="none" stroke="#2277b8" stroke-width="1.8"/>
+  <rect x="124" y="240" width="80" height="3" rx="1.5" fill="#ccd3de"/><rect x="124" y="249" width="84" height="3" rx="1.5" fill="#ccd3de"/>
+  <rect x="124" y="258" width="70" height="3" rx="1.5" fill="#ccd3de"/><rect x="124" y="267" width="58" height="3" rx="1.5" fill="#ccd3de"/>
 
-  <!-- ══════════════ LANE 2 · FACES (blue) · top 214 ══════════════ -->
-  <rect x="210" y="214" width="330" height="82" rx="11" fill="#e9f2fb" stroke="#2277b8" stroke-width="1.5" filter="url(#sh)"/>
-  <g transform="translate(224,241)">
-    <circle cx="14" cy="9" r="5.6" fill="none" stroke="#2277b8" stroke-width="2"/>
-    <path d="M3,27 a11,10 0 0 1 22,0" fill="none" stroke="#2277b8" stroke-width="2"/>
-  </g>
-  <text x="266" y="236" font-size="10" font-weight="700" fill="#2277b8" letter-spacing="0.7">FACES</text>
-  <text x="266" y="259" font-size="15" font-weight="700" fill="#1f2733">YuNet</text>
-  <text x="266" y="279" font-size="11" fill="#5b6472">OpenCV DNN · runs locally</text>
-  <line x1="540" y1="255" x2="594" y2="255" stroke="#7b8494" stroke-width="1.5" marker-end="url(#ah)"/>
-  <text x="567" y="246" text-anchor="middle" font-size="9.5" font-style="italic" fill="#9aa4b2">faces</text>
-  <rect x="596" y="214" width="330" height="82" rx="11" fill="#e9f2fb" stroke="#2277b8" stroke-width="1.5" filter="url(#sh)"/>
-  <text x="612" y="242" font-size="13.5" font-weight="700" fill="#1f2733">pad ~15% → Gaussian blur</text>
-  <rect x="613" y="258" width="9" height="9" rx="2" fill="#2b2f36"/>
-  <text x="628" y="266" font-size="11" fill="#3d4b5e">blur every face — de-identify, not a box</text>
+  <!-- body narrative (kept) -->
+  <rect x="74" y="298" width="130" height="3" rx="1.5" fill="#ccd3de"/><rect x="74" y="307" width="130" height="3" rx="1.5" fill="#ccd3de"/>
+  <rect x="74" y="316" width="112" height="3" rx="1.5" fill="#ccd3de"/><rect x="74" y="325" width="130" height="3" rx="1.5" fill="#ccd3de"/>
+  <rect x="74" y="334" width="98"  height="3" rx="1.5" fill="#ccd3de"/>
 
-  <!-- ══════════════ LANE 3 · TEXT / PII (gold) · top 328 ══════════════ -->
-  <rect x="210" y="328" width="330" height="82" rx="11" fill="#fbf1da" stroke="#b07d10" stroke-width="1.5" filter="url(#sh)"/>
-  <g transform="translate(224,341)">
-    <rect x="0" y="4"  width="28" height="3.4" rx="1.7" fill="#b07d10"/>
-    <rect x="0" y="12" width="28" height="3.4" rx="1.7" fill="#b07d10"/>
-    <rect x="0" y="20" width="17" height="3.4" rx="1.7" fill="#b07d10"/>
-  </g>
-  <text x="266" y="350" font-size="10" font-weight="700" fill="#b07d10" letter-spacing="0.7">TEXT / PII</text>
-  <text x="266" y="373" font-size="15" font-weight="700" fill="#1f2733">ai_parse_document</text>
-  <text x="266" y="393" font-size="11" fill="#5b6472">read text elements + boxes (docs)</text>
-  <line x1="540" y1="369" x2="594" y2="369" stroke="#7b8494" stroke-width="1.5" marker-end="url(#ah)"/>
-  <text x="567" y="360" text-anchor="middle" font-size="9.5" font-style="italic" fill="#9aa4b2">elements</text>
-  <rect x="596" y="328" width="330" height="82" rx="11" fill="#fbf1da" stroke="#b07d10" stroke-width="1.5" filter="url(#sh)"/>
-  <text x="612" y="352" font-size="13.5" font-weight="700" fill="#1f2733">split lines → regex + Claude</text>
-  <rect x="613" y="365" width="9" height="9" rx="2" fill="#2b2f36"/>
-  <text x="628" y="373" font-size="11" fill="#3d4b5e">mask only the sensitive data fields</text>
-  <polyline points="613,392 617,396 623,388" fill="none" stroke="#2e8b57" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-  <text x="628" y="395" font-size="11" fill="#3d4b5e">keep the narrative &amp; boilerplate</text>
+  <!-- TEXT / PII part — a highlighted contact line (gold) -->
+  <rect x="74" y="357" width="134" height="24" rx="3" fill="#fdf7e8" stroke="#b07d10" stroke-width="1.6"/>
+  <text x="80" y="366" font-size="8" fill="#a8801f">Direct line · email</text>
+  <rect x="80" y="371" width="86" height="3" rx="1.5" fill="#d9b559"/>
 
-  <!-- ══════════════ LANE 4 · SENSITIVE (orange, dashed = optional) · top 442 ══════════════ -->
-  <rect x="210" y="442" width="330" height="82" rx="11" fill="#fff4e8" stroke="#d9730a" stroke-width="1.5" stroke-dasharray="6 3" filter="url(#sh)"/>
-  <g transform="translate(224,455)">
-    <rect x="0" y="3" width="28" height="22" rx="4" fill="none" stroke="#d9730a" stroke-width="2"/>
-    <circle cx="8" cy="14" r="3.6" fill="none" stroke="#d9730a" stroke-width="1.8"/>
-    <rect x="14" y="10" width="10" height="2.6" rx="1.3" fill="#d9730a"/>
-    <rect x="14" y="16" width="10" height="2.6" rx="1.3" fill="#d9730a"/>
-  </g>
-  <text x="266" y="464" font-size="10" font-weight="700" fill="#d9730a" letter-spacing="0.7">SENSITIVE ITEMS · OPTIONAL</text>
-  <text x="266" y="487" font-size="15" font-weight="700" fill="#1f2733">Claude vision</text>
-  <text x="266" y="507" font-size="11" fill="#5b6472">in-image PII + items (IDs, cards, screens)</text>
-  <line x1="540" y1="483" x2="594" y2="483" stroke="#7b8494" stroke-width="1.5" marker-end="url(#ah)"/>
-  <text x="567" y="474" text-anchor="middle" font-size="9.5" font-style="italic" fill="#9aa4b2">regions</text>
-  <rect x="596" y="442" width="330" height="82" rx="11" fill="#fff4e8" stroke="#d9730a" stroke-width="1.5" stroke-dasharray="6 3" filter="url(#sh)"/>
-  <text x="612" y="464" font-size="13.5" font-weight="700" fill="#1f2733">selective — reads &amp; judges</text>
-  <rect x="613" y="476" width="9" height="9" rx="2" fill="#2b2f36"/>
-  <text x="628" y="484" font-size="11" fill="#3d4b5e">returns only the sensitive regions</text>
-  <text x="612" y="506" font-size="10" font-style="italic" fill="#9a6a30">fallback: Grounding DINO open-vocab</text>
+  <!-- more body (kept) -->
+  <rect x="74" y="393" width="130" height="3" rx="1.5" fill="#ccd3de"/><rect x="74" y="402" width="108" height="3" rx="1.5" fill="#ccd3de"/>
+  <rect x="74" y="411" width="126" height="3" rx="1.5" fill="#ccd3de"/>
+
+  <!-- SENSITIVE part — an embedded ID / screen (orange, dashed = optional) -->
+  <rect x="74" y="461" width="104" height="44" rx="4" fill="#fff6ec" stroke="#d9730a" stroke-width="1.6" stroke-dasharray="5 2.5"/>
+  <rect x="82" y="470" width="24" height="18" rx="2" fill="none" stroke="#d9730a" stroke-width="1.5"/><circle cx="90" cy="479" r="3" fill="none" stroke="#d9730a" stroke-width="1.3"/>
+  <rect x="112" y="472" width="58" height="3" rx="1.5" fill="#e0a25f"/><rect x="112" y="480" width="58" height="3" rx="1.5" fill="#e0a25f"/><rect x="112" y="488" width="40" height="3" rx="1.5" fill="#e0a25f"/>
+  <text x="82" y="500" font-size="8" fill="#bd7a2e">ID · screen · card</text>
+
+  <!-- routing arrows: each doc part → its model -->
+  <line x1="214" y1="141" x2="298" y2="141" stroke="#d0342c" stroke-width="2" marker-end="url(#ahR)"/>
+  <text x="256" y="133" text-anchor="middle" font-size="8.5" font-style="italic" fill="#c56b64">logo</text>
+  <line x1="214" y1="255" x2="298" y2="255" stroke="#2277b8" stroke-width="2" marker-end="url(#ahB)"/>
+  <text x="256" y="247" text-anchor="middle" font-size="8.5" font-style="italic" fill="#5d92bb">face</text>
+  <line x1="214" y1="369" x2="298" y2="369" stroke="#b07d10" stroke-width="2" marker-end="url(#ahG)"/>
+  <text x="256" y="361" text-anchor="middle" font-size="8.5" font-style="italic" fill="#a08334">text</text>
+  <line x1="214" y1="483" x2="298" y2="483" stroke="#d9730a" stroke-width="2" stroke-dasharray="5 2.5" marker-end="url(#ahO)"/>
+  <text x="256" y="475" text-anchor="middle" font-size="8.5" font-style="italic" fill="#bd7a2e">item</text>
+
+  <!-- ══════════════ ② FIND · ③ DECIDE — LANE 1 LOGOS ══════════════ -->
+  <rect x="300" y="100" width="320" height="82" rx="11" fill="#fcecea" stroke="#d0342c" stroke-width="1.5" filter="url(#sh)"/>
+  <g transform="translate(314,127)"><rect x="0" y="0" width="28" height="28" rx="7" fill="none" stroke="#d0342c" stroke-width="2"/><circle cx="10" cy="14" r="3.6" fill="#d0342c"/><rect x="16" y="7" width="4.4" height="14" rx="2.2" fill="#d0342c"/></g>
+  <text x="356" y="122" font-size="10" font-weight="700" fill="#d0342c" letter-spacing="0.7">LOGOS</text>
+  <text x="356" y="145" font-size="15" font-weight="700" fill="#1f2733">Grounding DINO</text>
+  <text x="356" y="165" font-size="11" fill="#5b6472">open-vocab · logo-shaped boxes</text>
+  <line x1="620" y1="141" x2="666" y2="141" stroke="#7b8494" stroke-width="1.5" marker-end="url(#ah)"/><text x="643" y="132" text-anchor="middle" font-size="9" font-style="italic" fill="#9aa4b2">boxes</text>
+  <rect x="668" y="100" width="320" height="82" rx="11" fill="#fcecea" stroke="#d0342c" stroke-width="1.5" filter="url(#sh)"/>
+  <text x="684" y="124" font-size="13.5" font-weight="700" fill="#1f2733">flat-fill → CLIP gate</text>
+  <rect x="685" y="137" width="9" height="9" rx="2" fill="#2b2f36"/><text x="700" y="145" font-size="11" fill="#3d4b5e">mask real third-party brand marks</text>
+  <polyline points="685,164 689,168 695,160" fill="none" stroke="#2e8b57" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><text x="700" y="167" font-size="11" fill="#3d4b5e">drop icons/charts · keep your own logo</text>
+
+  <!-- LANE 2 FACES -->
+  <rect x="300" y="214" width="320" height="82" rx="11" fill="#e9f2fb" stroke="#2277b8" stroke-width="1.5" filter="url(#sh)"/>
+  <g transform="translate(314,241)"><circle cx="14" cy="9" r="5.6" fill="none" stroke="#2277b8" stroke-width="2"/><path d="M3,27 a11,10 0 0 1 22,0" fill="none" stroke="#2277b8" stroke-width="2"/></g>
+  <text x="356" y="236" font-size="10" font-weight="700" fill="#2277b8" letter-spacing="0.7">FACES</text>
+  <text x="356" y="259" font-size="15" font-weight="700" fill="#1f2733">YuNet</text>
+  <text x="356" y="279" font-size="11" fill="#5b6472">OpenCV DNN · runs locally</text>
+  <line x1="620" y1="255" x2="666" y2="255" stroke="#7b8494" stroke-width="1.5" marker-end="url(#ah)"/><text x="643" y="246" text-anchor="middle" font-size="9" font-style="italic" fill="#9aa4b2">faces</text>
+  <rect x="668" y="214" width="320" height="82" rx="11" fill="#e9f2fb" stroke="#2277b8" stroke-width="1.5" filter="url(#sh)"/>
+  <text x="684" y="242" font-size="13.5" font-weight="700" fill="#1f2733">pad ~15% → Gaussian blur</text>
+  <rect x="685" y="258" width="9" height="9" rx="2" fill="#2b2f36"/><text x="700" y="266" font-size="11" fill="#3d4b5e">blur every face — de-identify, not a box</text>
+
+  <!-- LANE 3 TEXT / PII -->
+  <rect x="300" y="328" width="320" height="82" rx="11" fill="#fbf1da" stroke="#b07d10" stroke-width="1.5" filter="url(#sh)"/>
+  <g transform="translate(314,341)"><rect x="0" y="4" width="28" height="3.4" rx="1.7" fill="#b07d10"/><rect x="0" y="12" width="28" height="3.4" rx="1.7" fill="#b07d10"/><rect x="0" y="20" width="17" height="3.4" rx="1.7" fill="#b07d10"/></g>
+  <text x="356" y="350" font-size="10" font-weight="700" fill="#b07d10" letter-spacing="0.7">TEXT / PII</text>
+  <text x="356" y="373" font-size="15" font-weight="700" fill="#1f2733">ai_parse_document</text>
+  <text x="356" y="393" font-size="11" fill="#5b6472">crack the page → text elements</text>
+  <line x1="620" y1="369" x2="666" y2="369" stroke="#7b8494" stroke-width="1.5" marker-end="url(#ah)"/><text x="643" y="360" text-anchor="middle" font-size="9" font-style="italic" fill="#9aa4b2">elements</text>
+  <rect x="668" y="328" width="320" height="82" rx="11" fill="#fbf1da" stroke="#b07d10" stroke-width="1.5" filter="url(#sh)"/>
+  <text x="684" y="352" font-size="13.5" font-weight="700" fill="#1f2733">split lines → regex + Claude</text>
+  <rect x="685" y="365" width="9" height="9" rx="2" fill="#2b2f36"/><text x="700" y="373" font-size="11" fill="#3d4b5e">mask only the sensitive data fields</text>
+  <polyline points="685,392 689,396 695,388" fill="none" stroke="#2e8b57" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><text x="700" y="395" font-size="11" fill="#3d4b5e">keep the narrative &amp; boilerplate</text>
+
+  <!-- LANE 4 SENSITIVE -->
+  <rect x="300" y="442" width="320" height="82" rx="11" fill="#fff4e8" stroke="#d9730a" stroke-width="1.5" stroke-dasharray="6 3" filter="url(#sh)"/>
+  <g transform="translate(314,455)"><rect x="0" y="3" width="28" height="22" rx="4" fill="none" stroke="#d9730a" stroke-width="2"/><circle cx="8" cy="14" r="3.6" fill="none" stroke="#d9730a" stroke-width="1.8"/><rect x="14" y="10" width="10" height="2.6" rx="1.3" fill="#d9730a"/><rect x="14" y="16" width="10" height="2.6" rx="1.3" fill="#d9730a"/></g>
+  <text x="356" y="464" font-size="10" font-weight="700" fill="#d9730a" letter-spacing="0.7">SENSITIVE ITEMS · OPTIONAL</text>
+  <text x="356" y="487" font-size="15" font-weight="700" fill="#1f2733">Claude vision</text>
+  <text x="356" y="507" font-size="11" fill="#5b6472">in-image PII + items (IDs, cards, screens)</text>
+  <line x1="620" y1="483" x2="666" y2="483" stroke="#7b8494" stroke-width="1.5" marker-end="url(#ah)"/><text x="643" y="474" text-anchor="middle" font-size="9" font-style="italic" fill="#9aa4b2">regions</text>
+  <rect x="668" y="442" width="320" height="82" rx="11" fill="#fff4e8" stroke="#d9730a" stroke-width="1.5" stroke-dasharray="6 3" filter="url(#sh)"/>
+  <text x="684" y="464" font-size="13.5" font-weight="700" fill="#1f2733">selective — reads &amp; judges</text>
+  <rect x="685" y="476" width="9" height="9" rx="2" fill="#2b2f36"/><text x="700" y="484" font-size="11" fill="#3d4b5e">returns only the sensitive regions</text>
+  <text x="684" y="506" font-size="10" font-style="italic" fill="#9a6a30">fallback: Grounding DINO open-vocab</text>
 
   <!-- lanes → merge -->
-  <line x1="926" y1="141" x2="948" y2="141" stroke="#7b8494" stroke-width="1.5" marker-end="url(#ah)"/>
-  <line x1="926" y1="255" x2="948" y2="255" stroke="#7b8494" stroke-width="1.5" marker-end="url(#ah)"/>
-  <line x1="926" y1="369" x2="948" y2="369" stroke="#7b8494" stroke-width="1.5" marker-end="url(#ah)"/>
-  <line x1="926" y1="483" x2="948" y2="483" stroke="#7b8494" stroke-width="1.5" marker-end="url(#ah)"/>
+  <line x1="988" y1="141" x2="1004" y2="141" stroke="#7b8494" stroke-width="1.5" marker-end="url(#ah)"/>
+  <line x1="988" y1="255" x2="1004" y2="255" stroke="#7b8494" stroke-width="1.5" marker-end="url(#ah)"/>
+  <line x1="988" y1="369" x2="1004" y2="369" stroke="#7b8494" stroke-width="1.5" marker-end="url(#ah)"/>
+  <line x1="988" y1="483" x2="1004" y2="483" stroke="#7b8494" stroke-width="1.5" marker-end="url(#ah)"/>
 
-  <!-- ── MERGE ─────────────────────────────────────────────────────────────── -->
-  <rect x="950" y="100" width="60" height="424" rx="11" fill="#eef1f6" stroke="#3d4b5e" stroke-width="1.5" filter="url(#sh)"/>
-  <text x="980" y="300" text-anchor="middle" font-size="12.5" font-weight="700" fill="#1f2733">align</text>
-  <text x="980" y="316" text-anchor="middle" font-size="12.5" font-weight="700" fill="#1f2733">boxes</text>
-  <text x="980" y="336" text-anchor="middle" font-size="9.5" fill="#5b6472">clip · pad</text>
-  <text x="980" y="349" text-anchor="middle" font-size="9.5" fill="#5b6472">NMS</text>
+  <!-- ④ MERGE -->
+  <rect x="1006" y="100" width="58" height="424" rx="11" fill="#eef1f6" stroke="#3d4b5e" stroke-width="1.5" filter="url(#sh)"/>
+  <text x="1035" y="300" text-anchor="middle" font-size="12.5" font-weight="700" fill="#1f2733">align</text>
+  <text x="1035" y="316" text-anchor="middle" font-size="12.5" font-weight="700" fill="#1f2733">boxes</text>
+  <text x="1035" y="336" text-anchor="middle" font-size="9.5" fill="#5b6472">clip · pad</text>
+  <text x="1035" y="349" text-anchor="middle" font-size="9.5" fill="#5b6472">NMS</text>
+  <line x1="1064" y1="312" x2="1090" y2="206" stroke="#7b8494" stroke-width="1.5" marker-end="url(#ah)"/>
+  <line x1="1064" y1="312" x2="1090" y2="374" stroke="#7b8494" stroke-width="1.5" marker-end="url(#ah)"/>
 
-  <!-- merge → outputs -->
-  <line x1="1010" y1="312" x2="1042" y2="206" stroke="#7b8494" stroke-width="1.5" marker-end="url(#ah)"/>
-  <line x1="1010" y1="312" x2="1042" y2="374" stroke="#7b8494" stroke-width="1.5" marker-end="url(#ah)"/>
-
-  <!-- ── OUTPUT: overlay ───────────────────────────────────────────────────── -->
-  <rect x="1044" y="150" width="212" height="112" rx="11" fill="#eef1f6" stroke="#4a5a6a" stroke-width="1.5" filter="url(#sh)"/>
-  <g transform="translate(1060,178)">
+  <!-- ⑤ OUTPUT: overlay -->
+  <rect x="1092" y="150" width="244" height="112" rx="11" fill="#eef1f6" stroke="#4a5a6a" stroke-width="1.5" filter="url(#sh)"/>
+  <g transform="translate(1108,178)">
     <rect x="0" y="0" width="36" height="56" rx="4" fill="#ffffff" stroke="#9aa4b2" stroke-width="1.4"/>
-    <rect x="6"  y="6"  width="18" height="8" rx="1.5" fill="none" stroke="#d0342c" stroke-width="1.6"/>
+    <rect x="6" y="6" width="18" height="8" rx="1.5" fill="none" stroke="#d0342c" stroke-width="1.6"/>
     <rect x="20" y="20" width="11" height="11" rx="1.5" fill="none" stroke="#2277b8" stroke-width="1.6"/>
-    <rect x="5"  y="42" width="26" height="7" rx="1.5" fill="none" stroke="#b07d10" stroke-width="1.6"/>
+    <rect x="5" y="42" width="26" height="7" rx="1.5" fill="none" stroke="#b07d10" stroke-width="1.6"/>
   </g>
-  <text x="1112" y="186" font-size="13" font-weight="700" fill="#1f2733">Debug overlay</text>
-  <text x="1112" y="205" font-size="10.5" fill="#5b6472">labelled boxes,</text>
-  <text x="1112" y="220" font-size="10.5" fill="#5b6472">non-destructive</text>
-  <text x="1112" y="244" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11" fill="#3d4b5e">*_overlay.jpg</text>
+  <text x="1160" y="186" font-size="13" font-weight="700" fill="#1f2733">Debug overlay</text>
+  <text x="1160" y="205" font-size="10.5" fill="#5b6472">labelled boxes,</text>
+  <text x="1160" y="220" font-size="10.5" fill="#5b6472">non-destructive</text>
+  <text x="1160" y="244" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11" fill="#3d4b5e">*_overlay.jpg</text>
 
-  <!-- ── OUTPUT: redacted ──────────────────────────────────────────────────── -->
-  <rect x="1044" y="298" width="212" height="150" rx="11" fill="#eceef2" stroke="#222831" stroke-width="1.5" filter="url(#sh)"/>
-  <g transform="translate(1060,326)">
-    <rect x="0" y="0" width="36" height="56" rx="4" fill="#ffffff" stroke="#9aa4b2" stroke-width="1.4"/>
-    <rect x="6"  y="6"  width="18" height="8" rx="1.5" fill="#15181d"/>
-    <rect x="20" y="20" width="11" height="11" rx="2" fill="url(#blurpx)"/>
-    <rect x="5"  y="42" width="26" height="7" rx="1.5" fill="#15181d"/>
+  <!-- ⑤ OUTPUT: redacted — the SAME doc, masked (closes the journey) -->
+  <rect x="1092" y="298" width="244" height="150" rx="11" fill="#eceef2" stroke="#222831" stroke-width="1.5" filter="url(#sh)"/>
+  <g transform="translate(1108,320)">
+    <rect x="0" y="0" width="40" height="106" rx="4" fill="#ffffff" stroke="#9aa4b2" stroke-width="1.4"/>
+    <rect x="5" y="7"  width="30" height="9" rx="2" fill="#15181d"/>            <!-- logo blacked -->
+    <rect x="5" y="24" width="14" height="14" rx="2" fill="url(#blurpx)"/>       <!-- face blurred -->
+    <rect x="23" y="26" width="12" height="2.4" rx="1.2" fill="#ccd3de"/><rect x="23" y="31" width="12" height="2.4" rx="1.2" fill="#ccd3de"/>
+    <rect x="5" y="46" width="30" height="2.4" rx="1.2" fill="#ccd3de"/><rect x="5" y="52" width="26" height="2.4" rx="1.2" fill="#ccd3de"/>  <!-- narrative kept -->
+    <rect x="5" y="62" width="30" height="8" rx="2" fill="#15181d"/>             <!-- contact blacked -->
+    <rect x="5" y="78" width="30" height="2.4" rx="1.2" fill="#ccd3de"/>
+    <rect x="5" y="86" width="24" height="14" rx="2" fill="#15181d"/>            <!-- ID blacked -->
   </g>
-  <text x="1112" y="334" font-size="13" font-weight="700" fill="#1f2733">Redacted copy</text>
-  <text x="1112" y="354" font-size="10.5" fill="#5b6472">faces → blur</text>
-  <text x="1112" y="369" font-size="10.5" fill="#5b6472">logos · text ·</text>
-  <text x="1112" y="384" font-size="10.5" fill="#5b6472">items → black</text>
-  <text x="1112" y="410" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11" fill="#1f2733">*_masked.jpg</text>
+  <text x="1160" y="330" font-size="13" font-weight="700" fill="#1f2733">Redacted copy</text>
+  <text x="1160" y="350" font-size="10.5" fill="#5b6472">the same doc —</text>
+  <text x="1160" y="365" font-size="10.5" fill="#5b6472">parts masked,</text>
+  <text x="1160" y="380" font-size="10.5" fill="#5b6472">narrative kept</text>
+  <text x="1160" y="410" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11" fill="#1f2733">*_masked.jpg</text>
 
-  <!-- ── legend + footnote ─────────────────────────────────────────────────── -->
-  <rect x="596" y="536" width="9" height="9" rx="2" fill="#2b2f36"/>
-  <text x="611" y="544" font-size="10.5" fill="#5b6472">masked</text>
-  <polyline points="662,543 666,547 672,539" fill="none" stroke="#2e8b57" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-  <text x="680" y="544" font-size="10.5" fill="#5b6472">kept</text>
-  <text x="28" y="576" font-size="11" fill="#8a94a2">Lanes run in parallel and toggle independently. Default on: logos · faces. Off by default: text/PII (needs Databricks) · sensitive items (needs a multimodal Claude endpoint).</text>
+  <!-- ── legend + honest note ──────────────────────────────────────────────── -->
+  <rect x="668" y="536" width="9" height="9" rx="2" fill="#2b2f36"/><text x="683" y="544" font-size="10.5" fill="#5b6472">masked</text>
+  <polyline points="734,543 738,547 744,539" fill="none" stroke="#2e8b57" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><text x="752" y="544" font-size="10.5" fill="#5b6472">kept</text>
+  <text x="24" y="548" font-size="10" fill="#8a94a2">Colour = which model owns which part. Only the text lane literally cracks the page into</text>
+  <text x="24" y="562" font-size="10" fill="#8a94a2">elements (ai_parse_document); logos, faces &amp; items are detected in place on the full page.</text>
+  <text x="900" y="576" font-size="10.5" fill="#8a94a2" text-anchor="end">Lanes run in parallel · default on: logos · faces · off by default: text/PII (Databricks) · sensitive items (Claude vision)</text>
 </svg>
