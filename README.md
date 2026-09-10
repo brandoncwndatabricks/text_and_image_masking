@@ -57,12 +57,6 @@ clips, pads, merges, and de-duplicates boxes before anything is drawn or masked:
 
 <sub>Every lane is the same two-step funnel: **① FIND** where content might be (Grounding DINO / YuNet / `ai_parse_document` / Claude vision), then **② DECIDE** what actually gets masked (the flat-fill + CLIP gate for logos, always-blur for faces, the regex + Claude classifier for text). **③ MERGE** lands every box on one aligned coordinate frame; **④ OUTPUT** is a non-destructive labelled **overlay** and the **redacted copy**. Lanes run in parallel and toggle independently — logos + faces are on by default, text/PII needs Databricks, and the **sensitive-items lane (dashed = optional, off by default)** adds a Claude-vision pass for in-image PII the document-text lane can't read. See [How logo detection works](#how-logo-detection-works-grounding-dino--crop--clip) for the crop → CLIP detail and [Known limitations](#known-limitations) for the document-vs-photo scope.</sub>
 
-**A real document through those stages** — the same advisory profile at each step: the detectors find regions (colored boxes; green = detected but kept), then the client logo is blacked, the executive headshot is Gaussian-blurred, and the CEO name / direct line / assistant email are masked while the title and narrative are preserved.
-
-<p align="center">
-  <img src="docs/img/pipeline_walkthrough.png" alt="Step-by-step: (1) original advisory document; (2) detector boxes drawn over it — logo, face, and text/PII regions, with kept regions in green; (3) the redacted copy with the logo blacked, the headshot blurred, and the sensitive text blacked while the title and body remain." width="960">
-</p>
-
 - **Logos** — [Grounding DINO](https://huggingface.co/IDEA-Research/grounding-dino-base)
   open-vocabulary detection with pixel-accurate `(H, W)` post-processing, then a
   **CLIP verification gate** that drops decorative icons / photos / charts so the

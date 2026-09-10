@@ -87,9 +87,12 @@ item if it contains ANY of:
 - Monetary amounts, fees, or figures tied to a specific client or engagement
 - Any other personally identifiable or client-confidential information
 
-Do NOT flag purely generic boilerplate that identifies no one — common nouns, \
-section headings like "Introduction" or "Summary", generic legal disclaimers, \
-page numbers, or dates with no other identifying context. When in doubt, MASK."""
+Do NOT flag text that identifies no one — generic narrative sentences, section \
+headings and titles, quotations, common nouns, generic legal disclaimers, page \
+numbers, or dates with no other identifying context — even if they sit near \
+sensitive lines. Flag an element only when it actually contains one of the \
+identifiers above; a sentence is not sensitive merely because it discusses the \
+client's business in general terms."""
 
 
 def regex_is_sensitive(text: str) -> bool:
@@ -153,14 +156,20 @@ def split_into_lines(dets: List[Detection]) -> List[Detection]:
 
     ``ai_parse_document`` returns one coarse box per element — a whole paragraph
     or contact block is a single box — so masking the element blacks out generic
-    text around one PII token (the main source of over-redaction). We partition
-    a multi-line element's box into equal vertical bands (one per content line)
-    so the downstream regex/Claude filter can mask only the sensitive lines.
+    text around one PII token (the main source of over-redaction). For a
+    multi-line element we partition its box into equal vertical bands (one per
+    content line) so the downstream regex/Claude filter can mask only the
+    sensitive lines.
 
-    Tables (HTML content) and figures are left whole — their layout isn't a
-    simple vertical line stack. Bands are padded slightly so a line is never
-    left half-masked by an imperfect split.
+    SAFETY: equal bands only line up when each content line is one *visual* line.
+    A long sentence wraps to several visual lines, so an equal split would leave
+    part of it (possibly the PII) OUTSIDE its band — under-redaction. We therefore
+    split ONLY stacked SHORT lines that cannot wrap (contact blocks, signature /
+    address blocks); any element with a long (wrappable) line, a table, or a
+    figure is left whole (masked in full — safe). Bands overlap slightly so a
+    kept split line is never left half-visible either.
     """
+    SHORT_LINE_MAX = 45   # chars; longer lines can wrap → unsafe to band-split
     out: List[Detection] = []
     for d in dets:
         content = d.meta.get("content", d.label) or ""
@@ -168,7 +177,8 @@ def split_into_lines(dets: List[Detection]) -> List[Detection]:
         lines = content.split("\n")
         non_empty = [ln for ln in lines if ln.strip()]
         if (d.source != "text" or etype in FIGURE_TYPES
-                or content.strip().startswith("<table") or len(non_empty) < 2):
+                or content.strip().startswith("<table") or len(non_empty) < 2
+                or max(len(ln.strip()) for ln in non_empty) > SHORT_LINE_MAX):
             out.append(d)
             continue
         x1, y1, x2, y2 = d.box
@@ -364,7 +374,7 @@ def _claude_sensitive_indices(text_dets, endpoint, profile, prompt, max_retries=
             resp = requests.post(
                 endpoint,
                 headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
-                json={"messages": [{"role": "user", "content": full_prompt}]},
+                json={"messages": [{"role": "user", "content": full_prompt}], "temperature": 0},
                 timeout=30,
             )
             if resp.status_code == 200:
